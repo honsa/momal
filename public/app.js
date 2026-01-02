@@ -160,35 +160,64 @@
     ws.send(JSON.stringify({ type, ...payload }));
   }
 
+  function setupCanvasResolution() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+
+    const displayW = Math.max(1, Math.round(rect.width));
+    const displayH = Math.max(1, Math.round(rect.height));
+
+    const targetW = Math.round(displayW * dpr);
+    const targetH = Math.round(displayH * dpr);
+
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+
+    // Reset transform so drawEvent can work in normalized space.
+    ctx.setTransform(canvas.width, 0, 0, canvas.height, 0, 0);
+  }
+
+  function normalizeCanvasPoint(e) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top) / rect.height;
+
+    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+  }
+
   function clearCanvasLocal() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Keep resolution in sync before clearing.
+    setupCanvasResolution();
+    // With normalized transform, clear full canvas space.
+    ctx.clearRect(0, 0, 1, 1);
   }
 
   function drawEvent(ev) {
     if (!ev) return;
-    const w = canvas.width;
-    const h = canvas.height;
+
+    // Ensure resolution matches current layout before drawing.
+    setupCanvasResolution();
 
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = ev.c || '#000';
-    ctx.lineWidth = ev.w || 3;
+    ctx.lineWidth = (ev.w || 3) / canvas.width; // normalize to canvas width
 
     if (ev.t === 'line') {
       ctx.beginPath();
-      ctx.moveTo(ev.x0 * w, ev.y0 * h);
-      ctx.lineTo(ev.x1 * w, ev.y1 * h);
+      ctx.moveTo(ev.x0, ev.y0);
+      ctx.lineTo(ev.x1, ev.y1);
       ctx.stroke();
     }
   }
 
   function canvasPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const x = (clientX - rect.left) / rect.width;
-    const y = (clientY - rect.top) / rect.height;
-    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+    return normalizeCanvasPoint(e);
   }
 
   function canDraw() {
@@ -293,10 +322,18 @@
   canvas.addEventListener('touchmove', onPointerMove, { passive: false });
   window.addEventListener('touchend', onPointerUp, { passive: false });
 
+  window.addEventListener('resize', () => {
+    // Keep canvas crisp and consistent on resize.
+    setupCanvasResolution();
+  });
+
   // periodic ui refresh for timer (snapshot also updates)
   setInterval(() => {
     refreshHighscore();
   }, 10000);
+
+  // initial resolution setup
+  setupCanvasResolution();
 
   connect();
 })();
