@@ -69,6 +69,74 @@ final class MomalServerRateLimitEnvTest extends TestCase
         self::assertSame(1, $nonSystem);
     }
 
+    public function testDrawRateLimitCanBeDisabledViaEnv(): void
+    {
+        putenv('MOMAL_DRAW_RATE_LIMIT_MS=0');
+
+        $ms = 0.0;
+        $clock = static fn () => $ms;
+
+        $server = new MomalServer(new Words(['WORT']), new HighscoreStore($this->tmpHighscoreFile()), $clock);
+
+        $c1 = new FakeConnection(1);
+        $c2 = new FakeConnection(2);
+        $server->onOpen($c1);
+        $server->onOpen($c2);
+
+        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => 'Alice', 'roomId' => 'ABC123']));
+        $server->onMessage($c2, $this->json(['type' => 'join', 'name' => 'Bob', 'roomId' => 'ABC123']));
+        $server->onMessage($c1, $this->json(['type' => 'round:start']));
+
+        $started = $this->findLastJsonByType($c1, 'round:started');
+        self::assertNotNull($started);
+        $drawerId = (string)($started['drawerConnectionId'] ?? '');
+        $drawer = $drawerId === '1' ? $c1 : $c2;
+        $receiver = $drawerId === '1' ? $c2 : $c1;
+
+        $payload = ['t' => 'line', 'x0' => 0.1, 'y0' => 0.2, 'x1' => 0.3, 'y1' => 0.4, 'c' => '#000', 'w' => 3];
+
+        for ($i = 0; $i < 5; $i++) {
+            $server->onMessage($drawer, $this->json(['type' => 'draw:event', 'payload' => $payload]));
+        }
+
+        self::assertSame(5, $this->countByType($receiver, 'draw:event'));
+    }
+
+    public function testDrawRateLimitRejectsNegativeEnvValue(): void
+    {
+        putenv('MOMAL_DRAW_RATE_LIMIT_MS=-10');
+
+        $ms = 0.0;
+        $clock = static fn () => $ms;
+
+        $server = new MomalServer(new Words(['WORT']), new HighscoreStore($this->tmpHighscoreFile()), $clock);
+
+        $c1 = new FakeConnection(1);
+        $c2 = new FakeConnection(2);
+        $server->onOpen($c1);
+        $server->onOpen($c2);
+
+        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => 'Alice', 'roomId' => 'ABC123']));
+        $server->onMessage($c2, $this->json(['type' => 'join', 'name' => 'Bob', 'roomId' => 'ABC123']));
+        $server->onMessage($c1, $this->json(['type' => 'round:start']));
+
+        $started = $this->findLastJsonByType($c1, 'round:started');
+        self::assertNotNull($started);
+        $drawerId = (string)($started['drawerConnectionId'] ?? '');
+        $drawer = $drawerId === '1' ? $c1 : $c2;
+        $receiver = $drawerId === '1' ? $c2 : $c1;
+
+        $payload = ['t' => 'line', 'x0' => 0.1, 'y0' => 0.2, 'x1' => 0.3, 'y1' => 0.4, 'c' => '#000', 'w' => 3];
+
+        // Default rate limit is 40ms; advance clock by 5ms between calls, so only 1 should pass.
+        for ($i = 0; $i < 5; $i++) {
+            $server->onMessage($drawer, $this->json(['type' => 'draw:event', 'payload' => $payload]));
+            $ms += $i === 0 ? 0 : 5;
+        }
+
+        self::assertSame(1, $this->countByType($receiver, 'draw:event'));
+    }
+
     private function tmpHighscoreFile(): string
     {
         $dir = sys_get_temp_dir() . '/momal-tests';
@@ -97,6 +165,39 @@ final class MomalServerRateLimitEnvTest extends TestCase
                 continue;
             }
             if (($d['name'] ?? '') !== 'System') {
+                $n++;
+            }
+        }
+
+        return $n;
+    }
+
+    /** @return array<string,mixed>|null */
+    private function findLastJsonByType(FakeConnection $conn, string $type): ?array
+    {
+        $found = null;
+        foreach ($conn->sent as $raw) {
+            $decoded = json_decode($raw, true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+            if (($decoded['type'] ?? null) === $type) {
+                $found = $decoded;
+            }
+        }
+
+        return $found;
+    }
+
+    private function countByType(FakeConnection $conn, string $type): int
+    {
+        $n = 0;
+        foreach ($conn->sent as $raw) {
+            $decoded = json_decode($raw, true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+            if (($decoded['type'] ?? null) === $type) {
                 $n++;
             }
         }
