@@ -38,6 +38,19 @@ Dann im Browser öffnen:
 
 - `http://localhost:8000`
 
+### Dev-Shortcut (beide Server zusammen)
+
+```sh
+cd /home/honsa/PhpstormProjects/momal
+./bin/dev.sh
+```
+
+Optional:
+
+- `MOMAL_WS_PORT` (Default: `8080`)
+- `MOMAL_HTTP_HOST` (Default: `0.0.0.0`)
+- `MOMAL_HTTP_PORT` (Default: `8000`)
+
 ## Spielen
 
 1. In 2 Browser-Tabs/Fenstern öffnen.
