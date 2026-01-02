@@ -32,24 +32,6 @@
   let drawerConnectionId = null;
   let state = 'lobby';
 
-  // Drawing state
-  let isDrawing = false;
-  let last = null;
-
-  // Outgoing draw event batching
-  // We send stroke chunks (polyline points) instead of many single segments.
-  const SEND_INTERVAL_MS = 16; // align with ~60fps to reduce jitter
-  const MAX_POINTS_PER_CHUNK = 120;
-
-  // Maximum allowed distance between consecutive points (normalized units).
-  // If the pointer jumps farther (fast movement / low event rate), we insert intermediate points.
-  const MAX_POINT_STEP = 0.006; // ~0.6% of canvas size
-
-  let strokeColor = '#000000';
-  let strokeWidth = 4;
-  let pendingPoints = []; // [{x,y}, ...]
-  let sendTimer = null;
-
   // Incoming draw rendering queue (smooth remote rendering)
   // We use a tiny jitter buffer so rendering is stable even if network delivery is bursty.
   const renderQueue = []; // items: {ev: object, dueMs: number}
@@ -57,10 +39,25 @@
 
   // Perfect smoothness mode: render a constant small delay behind the server clock.
   // This removes micro-stutters at the cost of a tiny fixed latency.
-  const JITTER_BUFFER_MS = 45;
-  const EVENT_SPACING_MS = 1; // spread events a bit when a large batch arrives at once
+  // We keep this dynamic: when bursts happen, buffer increases slightly; when stable, it shrinks.
+  const JITTER_BUFFER_MIN_MS = 20;
+  const JITTER_BUFFER_MAX_MS = 80;
+  let jitterBufferMs = 35;
+
+  const MAX_QUEUE_DELAY_MS = 220; // if we're too far behind, catch up
   let lastDueMs = 0;
   let timeOffsetMs = null; // serverTsMs - performance.now()
+
+  // Optionally spread events within a batch (0 = draw as one continuous stroke sequence)
+  const SPREAD_WITHIN_BATCH_MS = 0;
+
+  // If we tolerate minor out-of-order delivery, we can keep drawing instead of stalling.
+  // With a good jitter buffer, this stays visually smooth.
+  const DRAW_REORDER_WINDOW = 6;
+
+  function clamp(n, a, b) {
+    return Math.max(a, Math.min(b, n));
+  }
 
   function updateTimeOffset(serverTsMs) {
     if (!Number.isFinite(serverTsMs)) return;
@@ -79,6 +76,17 @@
     return performance.now() + timeOffsetMs;
   }
 
+  function tuneJitterBufferOnBatch(batchSize) {
+    // Simple heuristic: if batches are large (network burst / backlog), increase buffer a bit;
+    // if small, slowly decrease.
+    if (!Number.isFinite(batchSize)) return;
+    if (batchSize >= 8) {
+      jitterBufferMs = clamp(jitterBufferMs + 6, JITTER_BUFFER_MIN_MS, JITTER_BUFFER_MAX_MS);
+    } else if (batchSize <= 2) {
+      jitterBufferMs = clamp(jitterBufferMs - 1, JITTER_BUFFER_MIN_MS, JITTER_BUFFER_MAX_MS);
+    }
+  }
+
   function pumpRenderQueue() {
     const started = performance.now();
 
@@ -86,7 +94,6 @@
     const budgetMs = renderQueue.length > 400 ? 12 : (renderQueue.length > 120 ? 9 : 6);
 
     const nowServerMs = localNowAsServerMs();
-    let processed = 0;
 
     while (renderQueue.length > 0 && (performance.now() - started) < budgetMs) {
       const item = renderQueue[0];
@@ -99,7 +106,6 @@
       }
       renderQueue.shift();
       drawEvent(item.ev);
-      processed++;
     }
 
     if (renderQueue.length > 0) {
@@ -114,22 +120,18 @@
     // ignore null/undefined payloads
     if (!payload) return;
 
-    // If we have server timestamp, update time mapping.
     const tsMs = meta && Number.isFinite(meta.tsMs) ? Number(meta.tsMs) : null;
-    if (tsMs !== null) {
-      updateTimeOffset(tsMs);
+    if (tsMs !== null) updateTimeOffset(tsMs);
+
+    const nowServerMs = localNowAsServerMs();
+
+    const targetDue = nowServerMs + jitterBufferMs;
+
+    if (lastDueMs > targetDue + MAX_QUEUE_DELAY_MS) {
+      lastDueMs = targetDue;
     }
 
-    const baseServerNow = localNowAsServerMs();
-
-    // Schedule events slightly in the future to absorb jitter.
-    // Keep monotonic dueMs so strokes stay continuous.
-    const baseDue = Math.max(
-      baseServerNow + JITTER_BUFFER_MS,
-      lastDueMs || 0
-    );
-
-    const dueMs = baseDue + (renderQueue.length === 0 ? 0 : EVENT_SPACING_MS);
+    const dueMs = Math.max(targetDue, lastDueMs);
 
     renderQueue.push({ ev: payload, dueMs });
     lastDueMs = dueMs;
@@ -137,6 +139,42 @@
     if (renderScheduled) return;
     renderScheduled = true;
     window.requestAnimationFrame(pumpRenderQueue);
+  }
+
+  // Helper: enqueue an array of events but keep them within the same batch timeline.
+  function enqueueRenderBatch(events, tsMs) {
+    if (!Array.isArray(events) || events.length === 0) return;
+
+    if (Number.isFinite(tsMs)) updateTimeOffset(Number(tsMs));
+
+    tuneJitterBufferOnBatch(events.length);
+
+    const nowServerMs = localNowAsServerMs();
+    const targetDue = nowServerMs + jitterBufferMs;
+
+    if (lastDueMs > targetDue + MAX_QUEUE_DELAY_MS) {
+      lastDueMs = targetDue;
+    }
+
+    const baseDue = Math.max(targetDue, lastDueMs);
+
+    if (SPREAD_WITHIN_BATCH_MS > 0 && events.length > 1) {
+      for (let i = 0; i < events.length; i++) {
+        const ev = events[i];
+        renderQueue.push({ ev, dueMs: baseDue + (i * (SPREAD_WITHIN_BATCH_MS / events.length)) });
+      }
+    } else {
+      for (let i = 0; i < events.length; i++) {
+        renderQueue.push({ ev: events[i], dueMs: baseDue });
+      }
+    }
+
+    lastDueMs = baseDue;
+
+    if (!renderScheduled) {
+      renderScheduled = true;
+      window.requestAnimationFrame(pumpRenderQueue);
+    }
   }
 
   function setStatus(text) {
@@ -221,20 +259,23 @@
             break;
           }
 
-          // Keep time mapping in sync for jitter buffer.
           if (Number.isFinite(msg.tsMs)) {
             updateTimeOffset(Number(msg.tsMs));
           }
 
+          // establish expected sequence on first batch
           if (expectedDrawSeq === null) {
             expectedDrawSeq = seq;
           }
 
-          // If we're behind, buffer and try to drain in-order.
+          // buffer and try to drain in-order
           pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
 
+          // Small improvement: if we are missing something, don't freeze.
+          // Allow drawing slightly out-of-order (within a small window) to keep strokes continuous.
           if (seq !== expectedDrawSeq) {
             scheduleGapCheck();
+            drainPendingBatchesWithinWindow();
           }
 
           drainPendingBatches(false);
@@ -249,7 +290,6 @@
           break;
         case 'round:clear':
           clearCanvasLocal();
-          // reset draw v2 state so next batch can restart cleanly
           expectedDrawSeq = null;
           pendingBatches.clear();
           break;
@@ -461,10 +501,16 @@
       ? pendingPoints
       : [pendingPoints[0], pendingPoints[0]];
 
+    // Reduce payload size a bit: keep 1e-4 precision which is more than enough for screen-space.
+    const packed = pointsToSend.map((pt) => ({
+      x: Math.round(pt.x * 10000) / 10000,
+      y: Math.round(pt.y * 10000) / 10000,
+    }));
+
     send('draw:stroke', {
       payload: {
         t: 'stroke',
-        p: pointsToSend,
+        p: packed,
         c: strokeColor,
         w: strokeWidth
       }
@@ -609,9 +655,33 @@
     gapTimer = window.setTimeout(() => {
       gapTimer = null;
       // If we still have a gap after a short wait, just render what we have.
-      // This avoids long stalls on packet loss.
       drainPendingBatches(true);
-    }, 120);
+    }, 90);
+  }
+
+  function drainPendingBatchesWithinWindow() {
+    if (expectedDrawSeq === null) return;
+
+    // If we have the next batches but one is missing, render what we can within a small window.
+    // This avoids visible “stops” while drawing fast.
+    for (let i = 0; i < DRAW_REORDER_WINDOW; i++) {
+      const k = expectedDrawSeq + i;
+      if (!pendingBatches.has(k)) continue;
+
+      // Only draw out-of-order if we're missing earlier seq(s)
+      if (i === 0) return;
+
+      const batchObj = pendingBatches.get(k);
+      pendingBatches.delete(k);
+
+      const events = batchObj && Array.isArray(batchObj.events) ? batchObj.events : [];
+      const tsMs = batchObj && Number.isFinite(batchObj.tsMs) ? Number(batchObj.tsMs) : null;
+      enqueueRenderBatch(events, tsMs);
+
+      // Do NOT advance expectedDrawSeq here; we’re only keeping continuity.
+      // Once the missing seq arrives (or we force-drain), order will resync.
+      break;
+    }
   }
 
   function drainPendingBatches(force = false) {
@@ -624,26 +694,27 @@
       const events = batchObj && Array.isArray(batchObj.events) ? batchObj.events : [];
       const tsMs = batchObj && Number.isFinite(batchObj.tsMs) ? Number(batchObj.tsMs) : null;
 
-      events.forEach((ev) => enqueueRender(ev, { tsMs }));
+      enqueueRenderBatch(events, tsMs);
+
       expectedDrawSeq += 1;
       force = false;
     }
 
     if (force && pendingBatches.size > 0) {
-      // render lowest seq we have to avoid visible freezing
-      const keys = Array.from(pendingBatches.keys()).sort((a, b) => a - b);
+      const keys = Array.from(pendingBatches.keys()).filter((k) => Number.isFinite(k)).sort((a, b) => a - b);
       const k = keys[0];
+      if (!Number.isFinite(k)) return;
+
       const batchObj = pendingBatches.get(k);
       pendingBatches.delete(k);
 
-      if (typeof k === 'number') expectedDrawSeq = k + 1;
+      expectedDrawSeq = k + 1;
 
       const events = batchObj && Array.isArray(batchObj.events) ? batchObj.events : [];
       const tsMs = batchObj && Number.isFinite(batchObj.tsMs) ? Number(batchObj.tsMs) : null;
 
-      events.forEach((ev) => enqueueRender(ev, { tsMs }));
+      enqueueRenderBatch(events, tsMs);
 
-      // try draining following seqs
       drainPendingBatches(false);
     }
   }
