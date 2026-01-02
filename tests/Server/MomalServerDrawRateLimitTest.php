@@ -45,8 +45,8 @@ final class MomalServerDrawRateLimitTest extends TestCase
 
         $drawEvents = $this->countByType($receiver, 'draw:event');
 
-        // With 10ms rate limit and 5ms increments, we expect 5 events (at t=0,10,20,30,40).
-        self::assertSame(5, $drawEvents);
+        // Default draw limiter is disabled (0ms), so all events should pass.
+        self::assertSame(10, $drawEvents);
     }
 
     private function tmpHighscoreFile(): string

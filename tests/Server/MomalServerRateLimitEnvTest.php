@@ -84,12 +84,12 @@ final class MomalServerRateLimitEnvTest extends TestCase
 
         $payload = ['t' => 'line', 'x0' => 0.1, 'y0' => 0.2, 'x1' => 0.3, 'y1' => 0.4, 'c' => '#000', 'w' => 3];
 
-        // With default rate limiting enabled, a burst without time advancing must be throttled.
         for ($i = 0; $i < 5; $i++) {
             $server->onMessage($drawer, $this->json(['type' => 'draw:event', 'payload' => $payload]));
         }
 
-        self::assertSame(1, $this->countByType($receiver, 'draw:event'));
+        // Default draw limiter is disabled (0ms), negative values must fall back to default (also disabled).
+        self::assertSame(5, $this->countByType($receiver, 'draw:event'));
     }
 
     private function tmpHighscoreFile(): string
