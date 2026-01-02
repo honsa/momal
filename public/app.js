@@ -399,18 +399,28 @@
     return normalizeCanvasPoint(e);
   }
 
-  function flushStrokeChunk() {
+  function flushStrokeChunk(forceSinglePoint = false) {
     if (!canDraw()) return;
-    if (!pendingPoints || pendingPoints.length < 2) {
+
+    if (!pendingPoints || pendingPoints.length === 0) {
       pendingPoints = [];
       return;
     }
 
-    // send only normalized points, color, width
+    // If we only have a single point (e.g. just started the stroke), send it as a tiny dot-stroke
+    // so remote clients don't miss the beginning.
+    if (pendingPoints.length < 2 && !forceSinglePoint) {
+      return;
+    }
+
+    const pointsToSend = pendingPoints.length >= 2
+      ? pendingPoints
+      : [pendingPoints[0], pendingPoints[0]];
+
     send('draw:stroke', {
       payload: {
         t: 'stroke',
-        p: pendingPoints,
+        p: pointsToSend,
         c: strokeColor,
         w: strokeWidth
       }
@@ -447,6 +457,9 @@
     last = p;
     pendingPoints = [p];
 
+    // Send the first point immediately so other clients see stroke start right away.
+    flushStrokeChunk(true);
+
     e.preventDefault();
   }
 
@@ -480,7 +493,8 @@
     isDrawing = false;
     last = null;
 
-    flushStrokeChunk();
+    // Send whatever remains.
+    flushStrokeChunk(true);
     e.preventDefault();
   }
 
@@ -527,13 +541,21 @@
     if (e.key === 'Enter') btnSend.click();
   });
 
-  canvas.addEventListener('mousedown', onPointerDown);
-  canvas.addEventListener('mousemove', onPointerMove);
-  window.addEventListener('mouseup', onPointerUp);
+  // Prefer PointerEvents when available for higher frequency and consistent behavior.
+  if (window.PointerEvent) {
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  } else {
+    canvas.addEventListener('mousedown', onPointerDown);
+    canvas.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
 
-  canvas.addEventListener('touchstart', onPointerDown, { passive: false });
-  canvas.addEventListener('touchmove', onPointerMove, { passive: false });
-  window.addEventListener('touchend', onPointerUp, { passive: false });
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp, { passive: false });
+  }
 
   window.addEventListener('resize', () => {
     canvasTransformReady = false;
