@@ -4,7 +4,7 @@ Kleines Multiplayer-MVP im Browser: Zeichnen (Canvas), Live-Chat/Antworten, Punk
 
 ## Anforderungen
 
-- PHP **8.1+** (CLI + Built-in server)
+- PHP **8.3+** (CLI + Built-in server)
 - Composer
 
 ## Setup
