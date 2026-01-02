@@ -4,73 +4,77 @@
 
   <defs>
     <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f8edd2"/>
-      <stop offset="0.6" stop-color="#e6cf9a"/>
-      <stop offset="1" stop-color="#caa05a"/>
+      <stop offset="0" stop-color="#f6ead2"/>
+      <stop offset="0.55" stop-color="#e1c994"/>
+      <stop offset="1" stop-color="#c79b52"/>
     </linearGradient>
 
     <linearGradient id="woodShade" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5"/>
-      <stop offset="0.45" stop-color="#000000" stop-opacity="0"/>
-      <stop offset="1" stop-color="#000000" stop-opacity="0.16"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.14"/>
     </linearGradient>
 
     <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.42" stop-color="#d4d9e0"/>
+      <stop offset="0.42" stop-color="#d6dbe2"/>
       <stop offset="0.55" stop-color="#f6f7f9"/>
-      <stop offset="1" stop-color="#b9c0c9"/>
+      <stop offset="1" stop-color="#b8bfc8"/>
     </linearGradient>
 
     <linearGradient id="bristle" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#efe3bf"/>
-      <stop offset="1" stop-color="#caa04f"/>
+      <stop offset="0" stop-color="#f5f0df"/>
+      <stop offset="1" stop-color="#e6d6aa"/>
     </linearGradient>
   </defs>
 
-  <!-- HANDLE (popsicle-stick shape like the reference) -->
-  <!-- Outer silhouette -->
+  <!-- HANDLE (closer to reference: long, symmetric, popsicle-stick profile + large hole) -->
   <path d="
-    M11.0 12.0
-    C12.0 8.0 15.8 5.6 20.0 6.2
-    C23.8 6.7 26.8 9.6 27.6 13.3
-    L28.7 18.3
-    C28.9 19.4 29.4 20.4 30.2 21.2
-    L30.9 21.9
-    C32.0 23.0 32.0 24.8 30.9 25.9
-    L25.9 30.9
-    C24.8 32.0 23.0 32.0 21.9 30.9
-    L14.0 23.0
-    C11.7 20.7 10.3 16.6 11.0 12.0
+    M16.2 5.8
+    C18.4 4.0 21.6 4.2 23.6 6.2
+    C25.3 7.9 25.7 10.5 24.6 12.6
+    L24.2 13.4
+    C23.8 14.2 23.8 15.2 24.3 16.0
+    L28.4 22.8
+    C29.4 24.5 29.2 26.6 27.8 28.0
+    L22.7 33.1
+    C21.2 34.6 18.8 34.6 17.3 33.1
+    L10.9 26.7
+    C9.0 24.8 8.7 21.8 10.2 19.6
+    L13.2 15.1
+    C13.8 14.2 13.8 13.0 13.2 12.1
+    L12.7 11.4
+    C11.1 9.1 13.4 6.3 16.2 5.8
     Z
   " fill="url(#wood)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
 
-  <!-- Handle highlight stripe -->
-  <path d="M13.2 11.8 C14.1 9.4 16.5 8.0 18.9 8.3 C21.3 8.6 23.0 10.1 23.7 12.4 L24.9 16.7"
+  <!-- handle highlight stripe -->
+  <path d="M15.0 7.3 C17.0 6.0 19.9 6.1 21.8 7.8 C23.4 9.3 23.5 11.4 22.6 12.9 L22.3 13.4"
         fill="none" stroke="url(#woodShade)" stroke-width="4" stroke-linecap="round" opacity="0.95"/>
 
-  <!-- Hole at the end -->
-  <circle cx="18.4" cy="10.6" r="2.35" fill="#ffffff" stroke="#000" stroke-width="2"/>
+  <!-- Large hole at end -->
+  <circle cx="19.3" cy="8.6" r="2.6" fill="#ffffff" stroke="#000" stroke-width="2"/>
 
-  <!-- FERRULE (metal clamp) - slightly wider, more like the photo -->
-  <path d="M20.0 21.2l12.2 12.2-5.4 5.4-12.2-12.2z" fill="url(#metal)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
-  <!-- Ferrule folds/lines -->
-  <path d="M21.8 23.0l9.0 9.0" stroke="#000" stroke-width="1.4" opacity="0.35" stroke-linecap="round"/>
-  <path d="M18.4 23.8l12.2 12.2" stroke="#000" stroke-width="1.1" opacity="0.18"/>
-  <!-- Rivets/screws -->
-  <circle cx="24.9" cy="27.5" r="0.9" fill="#000" opacity="0.42"/>
-  <circle cx="27.7" cy="30.3" r="0.9" fill="#000" opacity="0.42"/>
+  <!-- FERRULE (wider + more rectangular like photo) -->
+  <path d="M16.8 22.6l15.0 15.0-6.2 6.2-15.0-15.0z" fill="url(#metal)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Ferrule ridges -->
+  <path d="M18.7 24.5l11.1 11.1" stroke="#000" stroke-width="1.3" opacity="0.25" stroke-linecap="round"/>
+  <path d="M14.9 25.6l15.0 15.0" stroke="#000" stroke-width="1.0" opacity="0.16"/>
 
-  <!-- BRISTLES (flush to ferrule) -->
-  <path d="M18.2 32.9l11.6 11.6c1.0 1.0 2.6 1.0 3.6 0l7.0-7.0c1.0-1.0 1.0-2.6 0-3.6L30.4 26.3z"
+  <!-- Rivets -->
+  <circle cx="21.9" cy="27.7" r="0.9" fill="#000" opacity="0.40"/>
+  <circle cx="25.0" cy="30.8" r="0.9" fill="#000" opacity="0.40"/>
+
+  <!-- BRISTLES (light, like photo) -->
+  <path d="M14.3 34.1l12.6 12.6c1.1 1.1 2.9 1.1 4.0 0l8.0-8.0c1.1-1.1 1.1-2.9 0-4.0L26.3 22.1z"
         fill="url(#bristle)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
 
   <!-- Bristle strands -->
-  <path d="M20.6 35.3l9.2 9.2" stroke="#000" stroke-width="1.0" opacity="0.14"/>
-  <path d="M22.6 33.3l11.0 11.0" stroke="#000" stroke-width="1.0" opacity="0.12"/>
-  <path d="M24.6 31.3l11.6 11.6" stroke="#000" stroke-width="1.0" opacity="0.12"/>
+  <path d="M16.9 36.7l9.9 9.9" stroke="#000" stroke-width="1.0" opacity="0.10"/>
+  <path d="M19.0 34.6l12.2 12.2" stroke="#000" stroke-width="1.0" opacity="0.08"/>
+  <path d="M21.1 32.5l12.6 12.6" stroke="#000" stroke-width="1.0" opacity="0.08"/>
 
-  <!-- Bristle tip slight texture -->
-  <path d="M41.8 36.2c0.7 0.7 0.7 1.9 0 2.6l-6.0 6.0c-0.7 0.7-1.9 0.7-2.6 0" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" opacity="0.32"/>
+  <!-- Bristle tip line -->
+  <path d="M42.7 37.0c0.8 0.8 0.8 2.1 0 2.9l-6.9 6.9c-0.8 0.8-2.1 0.8-2.9 0" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" opacity="0.28"/>
 </svg>
 
