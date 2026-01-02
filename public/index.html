@@ -34,17 +34,22 @@
       <h3>Spieler</h3>
       <ul id="players" class="players"></ul>
 
-      <details>
-        <summary>Highscore</summary>
-        <ol id="highscore" class="highscore"></ol>
-      </details>
+      <h3>Highscore</h3>
+      <div class="highscoreTop" aria-live="polite">
+        <div class="small">Aktueller Highscore</div>
+        <div id="highscoreTop" class="highscoreTopValue">—</div>
+      </div>
+      <ol id="highscore" class="highscore"></ol>
     </section>
 
     <section class="panel canvasPanel">
       <div class="canvasTop">
-        <div>
+        <div class="roundInfo">
           <div class="small">Runde: <span id="roundNumber">-</span></div>
-          <div class="small">Zeit: <span id="timeLeft">-</span></div>
+          <div class="timePill" aria-live="polite" aria-label="Verbleibende Zeit">
+            <span class="timeLabel">Zeit</span>
+            <span id="timeLeft" class="timeValue">-</span>
+          </div>
         </div>
         <div class="wordBox">
           <div class="small">Wort (nur Zeichner)</div>

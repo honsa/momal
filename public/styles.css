@@ -7,6 +7,10 @@
 .panel{background:#0f1720;border:1px solid #1d2731;border-radius:12px;padding:12px}
 .canvasPanel{padding:0;overflow:hidden}
 .canvasTop{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid #1d2731}
+.roundInfo{display:flex;flex-direction:column;gap:8px}
+.timePill{display:inline-flex;align-items:baseline;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid #2d3b4b;background:#111c28;min-width:140px}
+.timeLabel{font-size:12px;color:#a9b7c8}
+.timeValue{font-size:22px;font-weight:800;letter-spacing:.4px;color:#e8eef7}
 .wordBox{min-width:220px}
 .word{font-size:20px;font-weight:700}
 .tools{display:flex;gap:8px;align-items:center}
@@ -20,8 +24,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #canvas{display:block;width:100%;height:auto;background:#ffffff;touch-action:none}
 .players,.highscore{margin:0;padding-left:18px}
 .players li{margin:6px 0}
+.highscoreTop{margin:8px 0 10px;padding:10px 12px;border:1px dashed #2d3b4b;border-radius:12px;background:#0b1118}
+.highscoreTopValue{font-size:16px;font-weight:800}
 .chat{height:380px;overflow:auto;border:1px solid #1d2731;border-radius:12px;padding:10px;background:#0b1118}
 .chatLine{margin:6px 0;line-height:1.2}
 .chatName{font-weight:700}
 .hint{padding:10px 12px;border-top:1px solid #1d2731;font-size:12px;color:#a9b7c8}
-@media (max-width:1100px){.layout{grid-template-columns:1fr}.chat{height:260px}}
+@media (max-width:1100px){.layout{grid-template-columns:1fr}.chat{height:260px}.canvasTop{flex-wrap:wrap}.wordBox{min-width:160px}}

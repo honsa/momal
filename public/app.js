@@ -18,6 +18,7 @@
   const widthEl = $('width');
   const hintEl = $('hint');
   const highscoreEl = $('highscore');
+  const highscoreTopEl = $('highscoreTop');
   const toastEl = $('toast');
 
   const canvas = $('canvas');
@@ -806,14 +807,28 @@
       .then(r => r.json())
       .then((data) => {
         highscoreEl.innerHTML = '';
-        (data.top || []).forEach(el => {
+
+        const top = Array.isArray(data.top) ? data.top : [];
+
+        if (highscoreTopEl) {
+          if (top.length > 0) {
+            const first = top[0];
+            highscoreTopEl.textContent = `${first.name} — ${first.points}`;
+          } else {
+            highscoreTopEl.textContent = '—';
+          }
+        }
+
+        top.forEach(el => {
           const li = document.createElement('li');
           const d = new Date((el.updatedAt || 0) * 1000).toLocaleDateString();
           li.textContent = `${el.name} — ${el.points} (${d})`;
           highscoreEl.appendChild(li);
         });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (highscoreTopEl) highscoreTopEl.textContent = '—';
+      });
   }
 
   // draw v2 sequencing (optional)
