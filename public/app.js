@@ -327,10 +327,12 @@
 
     ws.onopen = () => {
       setStatus('online');
+      showToast('WS verbunden');
     };
 
-    ws.onclose = () => {
+    ws.onclose = (e) => {
       setStatus('offline');
+      showToast(`WS getrennt (${e.code || 0})`);
       joined = false;
       isHost = false;
       drawerConnectionId = null;
@@ -339,6 +341,10 @@
       btnClear.disabled = true;
       secretWordEl.textContent = '—';
       hintEl.textContent = 'Verbindung getrennt. Seite neu laden.';
+    };
+
+    ws.onerror = () => {
+      showToast('WS Fehler (siehe console)');
     };
 
     ws.onmessage = (ev) => {
@@ -353,89 +359,94 @@
         return;
       }
 
-      const msg = JSON.parse(ev.data);
-      if (!msg || !msg.type) return;
+      try {
+        const msg = JSON.parse(ev.data);
+        if (!msg || !msg.type) return;
 
-      switch (msg.type) {
-        case 'hello':
-          myConnectionId = msg.connectionId;
-          break;
-        case 'error':
-          showToast(msg.message || 'Fehler');
-          addChatLine('System', msg.message || 'Fehler', Math.floor(Date.now()/1000));
-          break;
-        case 'joined':
-          joined = true;
-          isHost = !!msg.isHost;
-          btnStart.disabled = !isHost;
-          break;
-        case 'chat:new':
-          addChatLine(msg.name, msg.text, msg.ts);
-          break;
-        case 'room:snapshot':
-          renderSnapshot(msg);
-          break;
-        case 'round:started':
-          drawerConnectionId = msg.drawerConnectionId;
-          secretWordEl.textContent = '—';
-          clearCanvasLocal();
-          hintEl.textContent = (drawerConnectionId === myConnectionId)
-            ? 'Du bist Zeichner. Zeichne das Wort (oben erscheint es gleich).'
-            : 'Rate im Chat!';
-          break;
-        case 'round:word':
-          secretWordEl.textContent = msg.word;
-          break;
-        case 'draw:batch': {
-          const seq = Number(msg.seq);
-          const events = Array.isArray(msg.events) ? msg.events : [];
+        switch (msg.type) {
+          case 'hello':
+            myConnectionId = msg.connectionId;
+            break;
+          case 'error':
+            showToast(msg.message || 'Fehler');
+            addChatLine('System', msg.message || 'Fehler', Math.floor(Date.now()/1000));
+            break;
+          case 'joined':
+            joined = true;
+            isHost = !!msg.isHost;
+            btnStart.disabled = !isHost;
+            break;
+          case 'chat:new':
+            addChatLine(msg.name, msg.text, msg.ts);
+            break;
+          case 'room:snapshot':
+            renderSnapshot(msg);
+            break;
+          case 'round:started':
+            drawerConnectionId = msg.drawerConnectionId;
+            secretWordEl.textContent = '—';
+            clearCanvasLocal();
+            hintEl.textContent = (drawerConnectionId === myConnectionId)
+              ? 'Du bist Zeichner. Zeichne das Wort (oben erscheint es gleich).'
+              : 'Rate im Chat!';
+            break;
+          case 'round:word':
+            secretWordEl.textContent = msg.word;
+            break;
+          case 'draw:batch': {
+            const seq = Number(msg.seq);
+            const events = Array.isArray(msg.events) ? msg.events : [];
 
-          if (!Number.isFinite(seq) || events.length === 0) {
+            if (!Number.isFinite(seq) || events.length === 0) {
+              break;
+            }
+
+            if (Number.isFinite(msg.tsMs)) {
+              updateTimeOffset(Number(msg.tsMs));
+            }
+
+            // establish expected sequence on first batch
+            if (expectedDrawSeq === null) {
+              expectedDrawSeq = seq;
+            }
+
+            // buffer and try to drain in-order
+            pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
+
+            // Small improvement: if we are missing something, don't freeze.
+            // Allow drawing slightly out-of-order (within a small window) to keep strokes continuous.
+            if (seq !== expectedDrawSeq) {
+              scheduleGapCheck();
+              drainPendingBatchesWithinWindow();
+            }
+
+            drainPendingBatches(false);
             break;
           }
-
-          if (Number.isFinite(msg.tsMs)) {
-            updateTimeOffset(Number(msg.tsMs));
-          }
-
-          // establish expected sequence on first batch
-          if (expectedDrawSeq === null) {
-            expectedDrawSeq = seq;
-          }
-
-          // buffer and try to drain in-order
-          pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
-
-          // Small improvement: if we are missing something, don't freeze.
-          // Allow drawing slightly out-of-order (within a small window) to keep strokes continuous.
-          if (seq !== expectedDrawSeq) {
-            scheduleGapCheck();
-            drainPendingBatchesWithinWindow();
-          }
-
-          drainPendingBatches(false);
-          break;
+          case 'draw:event':
+          case 'draw:stroke':
+            // Legacy: queue for smooth render
+            if (msg.payload) {
+              enqueueRender(msg.payload);
+            }
+            break;
+          case 'round:clear':
+            clearCanvasLocal();
+            expectedDrawSeq = null;
+            pendingBatches.clear();
+            break;
+          case 'round:ended':
+            addChatLine('System', `${msg.reason} Wort war: ${msg.word}`, Math.floor(Date.now()/1000));
+            drawerConnectionId = null;
+            secretWordEl.textContent = '—';
+            btnClear.disabled = true;
+            expectedDrawSeq = null;
+            pendingBatches.clear();
+            break;
         }
-        case 'draw:event':
-        case 'draw:stroke':
-          // Legacy: queue for smooth render
-          if (msg.payload) {
-            enqueueRender(msg.payload);
-          }
-          break;
-        case 'round:clear':
-          clearCanvasLocal();
-          expectedDrawSeq = null;
-          pendingBatches.clear();
-          break;
-        case 'round:ended':
-          addChatLine('System', `${msg.reason} Wort war: ${msg.word}`, Math.floor(Date.now()/1000));
-          drawerConnectionId = null;
-          secretWordEl.textContent = '—';
-          btnClear.disabled = true;
-          expectedDrawSeq = null;
-          pendingBatches.clear();
-          break;
+      } catch (err) {
+        // If we get non-JSON text frames (shouldn't happen), ignore safely.
+        return;
       }
     };
   }

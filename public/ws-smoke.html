@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Momal WS Smoke</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
+    pre { background: #111; color:#ddd; padding: 12px; border-radius: 8px; overflow:auto; }
+  </style>
+</head>
+<body>
+<h1>WS Smoke Test</h1>
+<p>This page prints every WS message type it receives.</p>
+<pre id="out"></pre>
+<script>
+  const out = document.getElementById('out');
+  const log = (s) => { out.textContent += s + "\n"; };
+  const url = `ws://${location.hostname}:8080`;
+  const ws = new WebSocket(url);
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => log('open ' + url);
+  ws.onclose = (e) => log('close code=' + e.code + ' reason=' + e.reason);
+  ws.onerror = () => log('error');
+  ws.onmessage = (ev) => {
+    if (ev.data instanceof ArrayBuffer) {
+      const bytes = new Uint8Array(ev.data);
+      const prefix = String.fromCharCode(bytes[0],bytes[1],bytes[2],bytes[3]);
+      log('binary len=' + ev.data.byteLength + ' prefix=' + prefix);
+      return;
+    }
+    try {
+      const msg = JSON.parse(ev.data);
+      log('json type=' + msg.type);
+    } catch {
+      log('text len=' + String(ev.data).length);
+    }
+  };
+</script>
+</body>
+</html>
+
