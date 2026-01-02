@@ -3,42 +3,56 @@
   <!-- Flat paint brush cursor (custom SVG). Hotspot should be near bristle tip (bottom-right). -->
 
   <defs>
-    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f6e3b6"/>
-      <stop offset="1" stop-color="#d8b574"/>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6e7c6"/>
+      <stop offset="0.55" stop-color="#e7cf9b"/>
+      <stop offset="1" stop-color="#cda35d"/>
     </linearGradient>
+
+    <linearGradient id="woodShade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.18"/>
+    </linearGradient>
+
     <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f6f7f9"/>
-      <stop offset="0.5" stop-color="#cfd5dd"/>
-      <stop offset="1" stop-color="#f6f7f9"/>
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#cfd5dd"/>
+      <stop offset="0.55" stop-color="#f6f7f9"/>
+      <stop offset="1" stop-color="#bfc6cf"/>
     </linearGradient>
+
     <linearGradient id="bristle" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#d7b979"/>
-      <stop offset="1" stop-color="#b8893e"/>
+      <stop offset="0" stop-color="#e3cc8d"/>
+      <stop offset="1" stop-color="#b38334"/>
     </linearGradient>
   </defs>
 
-  <!-- Handle (wood) -->
-  <path d="M14.5 6.8c2.2-2.2 5.7-2.2 7.9 0l10.1 10.1c1.3 1.3 1.3 3.4 0 4.7l-3.6 3.6c-1.3 1.3-3.4 1.3-4.7 0L14.5 15.7c-2.2-2.2-2.2-5.7 0-7.9z" fill="url(#wood)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Handle (more like the photo: slim wood handle, rounded end, slight flare) -->
+  <path d="M15.0 5.5c2.2-2.2 5.9-2.0 8.0 0.2l7.0 7.2c1.3 1.3 1.3 3.4 0 4.7l-5.0 5.0c-1.3 1.3-3.4 1.3-4.7 0l-7.3-7.0c-2.2-2.1-2.4-5.8-0.2-8.1z" fill="url(#wood)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M17.0 6.2c1.9-1.9 4.9-1.8 6.7 0.1l6.7 6.9" fill="none" stroke="url(#woodShade)" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
 
-  <!-- Hole in handle -->
-  <circle cx="17.6" cy="10.0" r="2.2" fill="#ffffff" stroke="#000" stroke-width="2"/>
+  <!-- Hole (near handle end) -->
+  <circle cx="18.2" cy="9.8" r="2.0" fill="#ffffff" stroke="#000" stroke-width="2"/>
 
-  <!-- Ferrule (metal clamp) -->
-  <path d="M27.6 23.6l8.3 8.3-4.4 4.4-8.3-8.3z" fill="url(#metal)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M29.0 25.0l6.9 6.9" stroke="#000" stroke-width="1.4" opacity="0.55" stroke-linecap="round"/>
-  <circle cx="31.6" cy="29.0" r="0.9" fill="#000" opacity="0.5"/>
-  <circle cx="33.8" cy="31.2" r="0.9" fill="#000" opacity="0.5"/>
+  <!-- Ferrule (metal clamp): rectangular band with folds like the real brush) -->
+  <path d="M22.7 20.6l10.7 10.7-4.8 4.8-10.7-10.7z" fill="url(#metal)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M24.2 22.1l7.7 7.7" stroke="#000" stroke-width="1.4" opacity="0.4" stroke-linecap="round"/>
+  <path d="M20.7 22.6l10.7 10.7" stroke="#000" stroke-width="1.2" opacity="0.25"/>
 
-  <!-- Bristles (flat) -->
-  <path d="M24.2 35.8l7.6 7.6c1.0 1.0 2.6 1.0 3.6 0l4.2-4.2c1.0-1.0 1.0-2.6 0-3.6l-7.6-7.6z" fill="url(#bristle)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Rivets/screws -->
+  <circle cx="26.8" cy="26.2" r="0.9" fill="#000" opacity="0.45"/>
+  <circle cx="29.2" cy="28.6" r="0.9" fill="#000" opacity="0.45"/>
 
-  <!-- Bristle strands -->
-  <path d="M26.1 37.7l5.7 5.7" stroke="#000" stroke-width="1.0" opacity="0.35"/>
-  <path d="M28.0 35.8l7.6 7.6" stroke="#000" stroke-width="1.0" opacity="0.25"/>
-  <path d="M29.9 33.9l7.6 7.6" stroke="#000" stroke-width="1.0" opacity="0.22"/>
+  <!-- Bristles: flat rectangle with slightly rounded corners (like photo) -->
+  <path d="M20.8 31.6l10.6 10.6c0.9 0.9 2.3 0.9 3.2 0l6.0-6.0c0.9-0.9 0.9-2.3 0-3.2L30.0 22.4z" fill="url(#bristle)" stroke="#000" stroke-width="2" stroke-linejoin="round"/>
 
-  <!-- Tip edge (slight uneven bristle end) -->
-  <path d="M39.2 35.0c0.8 0.8 0.8 2.0 0 2.8l-2.8 2.8c-0.8 0.8-2.0 0.8-2.8 0" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" opacity="0.45"/>
+  <!-- Bristle strands (vertical-ish) -->
+  <path d="M23.0 33.8l8.4 8.4" stroke="#000" stroke-width="1.0" opacity="0.18"/>
+  <path d="M24.9 31.9l10.4 10.4" stroke="#000" stroke-width="1.0" opacity="0.14"/>
+  <path d="M26.8 30.0l10.6 10.6" stroke="#000" stroke-width="1.0" opacity="0.14"/>
+
+  <!-- Bristle tip edge highlight -->
+  <path d="M40.8 34.8c0.6 0.6 0.6 1.6 0 2.2l-5.2 5.2c-0.6 0.6-1.6 0.6-2.2 0" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" opacity="0.38"/>
 </svg>
 
