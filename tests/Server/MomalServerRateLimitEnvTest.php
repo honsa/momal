@@ -23,24 +23,15 @@ final class MomalServerRateLimitEnvTest extends TestCase
         putenv('MOMAL_CHAT_RATE_LIMIT_MS=0');
 
         $ms = 0.0;
-        $clock = static fn () => $ms;
+        $server = $this->serverWithClock($ms, ['A']);
 
-        $server = new MomalServer(new Words(['A']), new HighscoreStore($this->tmpHighscoreFile()), $clock);
-
-        $c1 = new FakeConnection(1);
-        $c2 = new FakeConnection(2);
-        $server->onOpen($c1);
-        $server->onOpen($c2);
-
-        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => 'Alice', 'roomId' => 'ABC123']));
-        $server->onMessage($c2, $this->json(['type' => 'join', 'name' => 'Bob', 'roomId' => 'ABC123']));
+        [$c1, $c2] = $this->joinRoom($server);
 
         for ($i = 0; $i < 5; $i++) {
             $server->onMessage($c1, $this->json(['type' => 'chat', 'text' => 'msg ' . $i]));
         }
 
-        $nonSystem = $this->countNonSystemChat($c2);
-        self::assertSame(5, $nonSystem);
+        self::assertSame(5, $this->countNonSystemChat($c2));
     }
 
     public function testChatRateLimitRejectsNegativeEnvValue(): void
@@ -48,25 +39,16 @@ final class MomalServerRateLimitEnvTest extends TestCase
         putenv('MOMAL_CHAT_RATE_LIMIT_MS=-10');
 
         $ms = 0.0;
-        $clock = static fn () => $ms;
+        $server = $this->serverWithClock($ms, ['A']);
 
-        $server = new MomalServer(new Words(['A']), new HighscoreStore($this->tmpHighscoreFile()), $clock);
-
-        $c1 = new FakeConnection(1);
-        $c2 = new FakeConnection(2);
-        $server->onOpen($c1);
-        $server->onOpen($c2);
-
-        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => 'Alice', 'roomId' => 'ABC123']));
-        $server->onMessage($c2, $this->json(['type' => 'join', 'name' => 'Bob', 'roomId' => 'ABC123']));
+        [$c1, $c2] = $this->joinRoom($server);
 
         for ($i = 0; $i < 5; $i++) {
             $server->onMessage($c1, $this->json(['type' => 'chat', 'text' => 'msg ' . $i]));
         }
 
         // default limiter should kick in
-        $nonSystem = $this->countNonSystemChat($c2);
-        self::assertSame(1, $nonSystem);
+        self::assertSame(1, $this->countNonSystemChat($c2));
     }
 
     public function testDrawRateLimitCanBeDisabledViaEnv(): void
@@ -74,24 +56,10 @@ final class MomalServerRateLimitEnvTest extends TestCase
         putenv('MOMAL_DRAW_RATE_LIMIT_MS=0');
 
         $ms = 0.0;
-        $clock = static fn () => $ms;
+        $server = $this->serverWithClock($ms, ['WORT']);
 
-        $server = new MomalServer(new Words(['WORT']), new HighscoreStore($this->tmpHighscoreFile()), $clock);
-
-        $c1 = new FakeConnection(1);
-        $c2 = new FakeConnection(2);
-        $server->onOpen($c1);
-        $server->onOpen($c2);
-
-        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => 'Alice', 'roomId' => 'ABC123']));
-        $server->onMessage($c2, $this->json(['type' => 'join', 'name' => 'Bob', 'roomId' => 'ABC123']));
-        $server->onMessage($c1, $this->json(['type' => 'round:start']));
-
-        $started = $this->findLastJsonByType($c1, 'round:started');
-        self::assertNotNull($started);
-        $drawerId = (string)($started['drawerConnectionId'] ?? '');
-        $drawer = $drawerId === '1' ? $c1 : $c2;
-        $receiver = $drawerId === '1' ? $c2 : $c1;
+        [$c1, $c2] = $this->joinRoom($server);
+        [$drawer, $receiver] = $this->startRoundAndGetDrawerReceiver($server, $c1, $c2);
 
         $payload = ['t' => 'line', 'x0' => 0.1, 'y0' => 0.2, 'x1' => 0.3, 'y1' => 0.4, 'c' => '#000', 'w' => 3];
 
@@ -107,24 +75,10 @@ final class MomalServerRateLimitEnvTest extends TestCase
         putenv('MOMAL_DRAW_RATE_LIMIT_MS=-10');
 
         $ms = 0.0;
-        $clock = static fn () => $ms;
+        $server = $this->serverWithClock($ms, ['WORT']);
 
-        $server = new MomalServer(new Words(['WORT']), new HighscoreStore($this->tmpHighscoreFile()), $clock);
-
-        $c1 = new FakeConnection(1);
-        $c2 = new FakeConnection(2);
-        $server->onOpen($c1);
-        $server->onOpen($c2);
-
-        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => 'Alice', 'roomId' => 'ABC123']));
-        $server->onMessage($c2, $this->json(['type' => 'join', 'name' => 'Bob', 'roomId' => 'ABC123']));
-        $server->onMessage($c1, $this->json(['type' => 'round:start']));
-
-        $started = $this->findLastJsonByType($c1, 'round:started');
-        self::assertNotNull($started);
-        $drawerId = (string)($started['drawerConnectionId'] ?? '');
-        $drawer = $drawerId === '1' ? $c1 : $c2;
-        $receiver = $drawerId === '1' ? $c2 : $c1;
+        [$c1, $c2] = $this->joinRoom($server);
+        [$drawer, $receiver] = $this->startRoundAndGetDrawerReceiver($server, $c1, $c2);
 
         $payload = ['t' => 'line', 'x0' => 0.1, 'y0' => 0.2, 'x1' => 0.3, 'y1' => 0.4, 'c' => '#000', 'w' => 3];
 
@@ -203,5 +157,42 @@ final class MomalServerRateLimitEnvTest extends TestCase
         }
 
         return $n;
+    }
+
+    /** @param list<string> $words */
+    private function serverWithClock(float &$ms, array $words): MomalServer
+    {
+        $clock = static fn (): float => $ms;
+
+        return new MomalServer(new Words($words), new HighscoreStore($this->tmpHighscoreFile()), $clock);
+    }
+
+    /** @return array{FakeConnection, FakeConnection} */
+    private function joinRoom(MomalServer $server): array
+    {
+        $c1 = new FakeConnection(1);
+        $c2 = new FakeConnection(2);
+        $server->onOpen($c1);
+        $server->onOpen($c2);
+
+        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => 'Alice', 'roomId' => 'ABC123']));
+        $server->onMessage($c2, $this->json(['type' => 'join', 'name' => 'Bob', 'roomId' => 'ABC123']));
+
+        return [$c1, $c2];
+    }
+
+    /** @return array{FakeConnection, FakeConnection} */
+    private function startRoundAndGetDrawerReceiver(MomalServer $server, FakeConnection $c1, FakeConnection $c2): array
+    {
+        $server->onMessage($c1, $this->json(['type' => 'round:start']));
+
+        $started = $this->findLastJsonByType($c1, 'round:started');
+        self::assertNotNull($started);
+
+        $drawerId = (string)($started['drawerConnectionId'] ?? '');
+        $drawer = $drawerId === '1' ? $c1 : $c2;
+        $receiver = $drawerId === '1' ? $c2 : $c1;
+
+        return [$drawer, $receiver];
     }
 }
