@@ -54,17 +54,19 @@ final class RoomTest extends TestCase
         $first = $room->drawerConnectionId;
         self::assertNotNull($first);
 
-        // simulate end of round by clearing drawer like server does
-        $room->drawerConnectionId = null;
-        $room->state = 'lobby';
+        // simulate end of round as the server does
+        $room->resetRoundState();
 
         $room->startRound(new Words());
         $second = $room->drawerConnectionId;
         self::assertNotNull($second);
 
-        // Rotation in this MVP starts from first player whenever drawerConnectionId was null.
-        // So we at least ensure it always picks a valid player and doesn't crash/change state incorrectly.
-        self::assertContains($second, ['1', '2', '3']);
+        // With stable rotation, the drawer should advance in player list order.
+        $ids = ['1', '2', '3'];
+        $firstIdx = array_search($first, $ids, true);
+        self::assertNotFalse($firstIdx);
+        $expectedSecond = $ids[($firstIdx + 1) % count($ids)];
+        self::assertSame($expectedSecond, $second);
     }
 
     public function testTimeLeftCountsDown(): void

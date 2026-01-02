@@ -19,10 +19,18 @@ final class Room
 
     public ?string $hostConnectionId = null;
 
-    /** @var self::STATE_* */
+    /**
+     * @var self::STATE_LOBBY|self::STATE_IN_ROUND|self::STATE_ROUND_END
+     */
     public string $state = self::STATE_LOBBY;
 
     public ?string $drawerConnectionId = null;
+
+    /**
+     * Keeps drawer rotation stable across rounds, even when the active round state is reset.
+     */
+    public ?string $lastDrawerConnectionId = null;
+
     public ?string $word = null;
 
     public int $roundStartedAt = 0;
@@ -58,6 +66,10 @@ final class Room
         if ($this->drawerConnectionId === $connectionId) {
             $this->resetRoundState();
         }
+
+        if ($this->lastDrawerConnectionId === $connectionId) {
+            $this->lastDrawerConnectionId = null;
+        }
     }
 
     public function isEmpty(): bool
@@ -76,6 +88,8 @@ final class Room
         $this->guessed = [];
 
         $this->drawerConnectionId = $this->pickNextDrawer();
+        $this->lastDrawerConnectionId = $this->drawerConnectionId;
+
         $this->word = $words->randomWord();
         $this->roundStartedAt = \time();
 
@@ -101,11 +115,11 @@ final class Room
             return null;
         }
 
-        if ($this->drawerConnectionId === null) {
+        if ($this->lastDrawerConnectionId === null) {
             return $ids[0];
         }
 
-        $idx = \array_search($this->drawerConnectionId, $ids, true);
+        $idx = \array_search($this->lastDrawerConnectionId, $ids, true);
         if ($idx === false) {
             return $ids[0];
         }
@@ -142,4 +156,3 @@ final class Room
         return true;
     }
 }
-
