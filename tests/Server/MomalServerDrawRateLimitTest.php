@@ -37,16 +37,16 @@ final class MomalServerDrawRateLimitTest extends TestCase
 
         $payload = ['t' => 'line', 'x0' => 0.1, 'y0' => 0.2, 'x1' => 0.3, 'y1' => 0.4, 'c' => '#000', 'w' => 3];
 
-        // burst draw events - advance time a little, but keep most calls within the 40ms window.
+        // burst draw events - advance time a little
         for ($i = 0; $i < 10; $i++) {
             $server->onMessage($drawer, $this->json(['type' => 'draw:event', 'payload' => $payload]));
-            $ms += $i === 0 ? 0 : 5; // 5ms step => only a few should pass
+            $ms += $i === 0 ? 0 : 5;
         }
 
         $drawEvents = $this->countByType($receiver, 'draw:event');
 
-        // With 40ms rate limit and 5ms increments, we expect about 2 events (at t=0 and t=40).
-        self::assertSame(2, $drawEvents);
+        // With 10ms rate limit and 5ms increments, we expect 5 events (at t=0,10,20,30,40).
+        self::assertSame(5, $drawEvents);
     }
 
     private function tmpHighscoreFile(): string

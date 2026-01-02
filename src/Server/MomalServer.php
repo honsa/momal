@@ -39,7 +39,7 @@ final class MomalServer implements MessageComponentInterface
      */
     private array $lastDrawAtMs = [];
 
-    private const DEFAULT_DRAW_RATE_LIMIT_MS = 40;
+    private const DEFAULT_DRAW_RATE_LIMIT_MS = 10;
     private int $drawRateLimitMs;
 
     /** @var callable(): float */

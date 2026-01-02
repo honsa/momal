@@ -72,7 +72,7 @@ Optional:
 Der Server begrenzt die Frequenz von Chat/Guess und Draw-Events pro Connection.
 
 - `MOMAL_CHAT_RATE_LIMIT_MS` (Default: `400`) – minimale Zeit zwischen Chat/Guess-Nachrichten
-- `MOMAL_DRAW_RATE_LIMIT_MS` (Default: `40`) – minimale Zeit zwischen Draw-Events
+- `MOMAL_DRAW_RATE_LIMIT_MS` (Default: `10`) – minimale Zeit zwischen Draw-Events
 
 Beispiel:
 
@@ -111,7 +111,3 @@ composer stan
 cd /home/honsa/PhpstormProjects/momal
 composer check
 ```
-
-
-# Access to usr/bin for flatpak
-flatpak override --user com.jetbrains.PhpStorm --filesystem=/usr/bin

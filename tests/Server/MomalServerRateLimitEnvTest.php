@@ -21,6 +21,7 @@ final class MomalServerRateLimitEnvTest extends TestCase
     public function testChatRateLimitCanBeDisabledViaEnv(): void
     {
         putenv('MOMAL_CHAT_RATE_LIMIT_MS=0');
+        putenv('MOMAL_DRAW_RATE_LIMIT_MS=0');
 
         $ms = 0.0;
         $server = $this->serverWithClock($ms, ['A']);
@@ -37,6 +38,7 @@ final class MomalServerRateLimitEnvTest extends TestCase
     public function testChatRateLimitRejectsNegativeEnvValue(): void
     {
         putenv('MOMAL_CHAT_RATE_LIMIT_MS=-10');
+        putenv('MOMAL_DRAW_RATE_LIMIT_MS=0');
 
         $ms = 0.0;
         $server = $this->serverWithClock($ms, ['A']);
@@ -82,10 +84,9 @@ final class MomalServerRateLimitEnvTest extends TestCase
 
         $payload = ['t' => 'line', 'x0' => 0.1, 'y0' => 0.2, 'x1' => 0.3, 'y1' => 0.4, 'c' => '#000', 'w' => 3];
 
-        // Default rate limit is 40ms; advance clock by 5ms between calls, so only 1 should pass.
+        // With default rate limiting enabled, a burst without time advancing must be throttled.
         for ($i = 0; $i < 5; $i++) {
             $server->onMessage($drawer, $this->json(['type' => 'draw:event', 'payload' => $payload]));
-            $ms += $i === 0 ? 0 : 5;
         }
 
         self::assertSame(1, $this->countByType($receiver, 'draw:event'));
