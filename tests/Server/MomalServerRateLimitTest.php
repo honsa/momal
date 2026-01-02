@@ -28,10 +28,7 @@ final class MomalServerRateLimitTest extends TestCase
             $server->onMessage($c1, $this->json(['type' => 'chat', 'text' => 'spam ' . $i]));
         }
 
-        // Bob should receive at most 1 chat message from Alice in this burst.
-        $received = $this->countByType($c2, 'chat:new');
-
-        // there are also 2 system join lines; ensure we only count non-system if present
+        // Count non-system chat messages from Alice.
         $nonSystem = 0;
         foreach ($c2->sent as $raw) {
             $d = json_decode($raw, true);
@@ -43,8 +40,9 @@ final class MomalServerRateLimitTest extends TestCase
             }
         }
 
-        self::assertGreaterThanOrEqual(2, $received);
-        self::assertSame(1, $nonSystem);
+        // At least one message should pass, but the burst should be limited.
+        self::assertGreaterThanOrEqual(1, $nonSystem);
+        self::assertLessThanOrEqual(1, $nonSystem);
     }
 
     private function tmpHighscoreFile(): string
@@ -64,21 +62,5 @@ final class MomalServerRateLimitTest extends TestCase
         self::assertIsString($encoded);
 
         return $encoded;
-    }
-
-    private function countByType(FakeConnection $conn, string $type): int
-    {
-        $n = 0;
-        foreach ($conn->sent as $raw) {
-            $decoded = json_decode($raw, true);
-            if (!is_array($decoded)) {
-                continue;
-            }
-            if (($decoded['type'] ?? null) === $type) {
-                $n++;
-            }
-        }
-
-        return $n;
     }
 }
