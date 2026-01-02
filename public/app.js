@@ -36,8 +36,8 @@
 
   // Outgoing draw event batching
   // We send stroke chunks (polyline points) instead of many single segments.
-  const SEND_INTERVAL_MS = 16; // ~60fps
-  const MAX_POINTS_PER_CHUNK = 40;
+  const SEND_INTERVAL_MS = 12; // ~80fps (lower latency)
+  const MAX_POINTS_PER_CHUNK = 60;
 
   let strokeColor = '#000000';
   let strokeWidth = 4;
@@ -178,6 +178,96 @@
     ws.send(JSON.stringify({ type, ...payload }));
   }
 
+  function showToast(message, timeoutMs = 4000) {
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.hidden = false;
+
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => {
+      toastEl.hidden = true;
+    }, timeoutMs);
+  }
+
+  function setupCanvasResolution() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+
+    const displayW = Math.max(1, Math.round(rect.width));
+    const displayH = Math.max(1, Math.round(rect.height));
+
+    const targetW = Math.round(displayW * dpr);
+    const targetH = Math.round(displayH * dpr);
+
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+
+    // normalized coordinate space (0..1)
+    ctx.setTransform(canvas.width, 0, 0, canvas.height, 0, 0);
+  }
+
+  function normalizeCanvasPoint(e) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top) / rect.height;
+
+    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+  }
+
+  function clearCanvasLocal() {
+    setupCanvasResolution();
+    ctx.clearRect(0, 0, 1, 1);
+  }
+
+  function canDraw() {
+    return joined && state === 'in_round' && drawerConnectionId === myConnectionId;
+  }
+
+  function drawEvent(ev) {
+    if (!ev) return;
+
+    setupCanvasResolution();
+
+    // stroke events (polyline)
+    if (ev.t === 'stroke' && Array.isArray(ev.p) && ev.p.length >= 2) {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = ev.c || '#000';
+      ctx.lineWidth = (Number(ev.w) || 3) / canvas.width;
+
+      ctx.beginPath();
+      ctx.moveTo(ev.p[0].x, ev.p[0].y);
+      for (let i = 1; i < ev.p.length; i++) {
+        const pt = ev.p[i];
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.stroke();
+      return;
+    }
+
+    // legacy single line segment
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = ev.c || '#000';
+    ctx.lineWidth = (Number(ev.w) || 3) / canvas.width;
+
+    if (ev.t === 'line') {
+      ctx.beginPath();
+      ctx.moveTo(ev.x0, ev.y0);
+      ctx.lineTo(ev.x1, ev.y1);
+      ctx.stroke();
+    }
+  }
+
+  function canvasPos(e) {
+    return normalizeCanvasPoint(e);
+  }
+
   function flushStrokeChunk() {
     if (!canDraw()) return;
     if (!pendingPoints || pendingPoints.length < 2) {
@@ -200,31 +290,82 @@
 
   function scheduleStrokeFlush() {
     if (sendTimer !== null) return;
+
+    // Use rAF for low latency when active, plus a small timeout as fallback.
     sendTimer = window.setTimeout(() => {
       sendTimer = null;
       flushStrokeChunk();
     }, SEND_INTERVAL_MS);
-  }
-
-  function enqueueRender(payload) {
-    renderQueue.push(payload);
-    if (renderScheduled) return;
-    renderScheduled = true;
 
     window.requestAnimationFrame(() => {
-      renderScheduled = false;
-
-      // render a bounded amount per frame to keep UI responsive
-      const maxPerFrame = 12;
-      for (let i = 0; i < maxPerFrame && renderQueue.length > 0; i++) {
-        const ev = renderQueue.shift();
-        drawEvent(ev);
-      }
-
-      if (renderQueue.length > 0) {
-        enqueueRender(null); // re-schedule
-      }
+      if (sendTimer === null) return;
+      window.clearTimeout(sendTimer);
+      sendTimer = null;
+      flushStrokeChunk();
     });
+  }
+
+  function onPointerDown(e) {
+    if (!canDraw()) return;
+    isDrawing = true;
+
+    strokeColor = colorEl.value;
+    strokeWidth = Number(widthEl.value);
+
+    const p = canvasPos(e);
+    last = p;
+    pendingPoints = [p];
+
+    e.preventDefault();
+  }
+
+  function onPointerMove(e) {
+    if (!isDrawing || !last || !canDraw()) return;
+    const cur = canvasPos(e);
+
+    // local draw segment for immediate feedback
+    drawEvent({
+      t: 'line',
+      x0: last.x, y0: last.y,
+      x1: cur.x, y1: cur.y,
+      c: strokeColor,
+      w: strokeWidth
+    });
+
+    pendingPoints.push(cur);
+
+    if (pendingPoints.length >= MAX_POINTS_PER_CHUNK) {
+      flushStrokeChunk();
+    } else {
+      scheduleStrokeFlush();
+    }
+
+    last = cur;
+    e.preventDefault();
+  }
+
+  function onPointerUp(e) {
+    if (!canDraw()) return;
+    isDrawing = false;
+    last = null;
+
+    flushStrokeChunk();
+    e.preventDefault();
+  }
+
+  function refreshHighscore() {
+    fetch('/api/highscore.php?limit=20')
+      .then(r => r.json())
+      .then(data => {
+        highscoreEl.innerHTML = '';
+        (data.top || []).forEach(el => {
+          const li = document.createElement('li');
+          const d = new Date((el.updatedAt || 0) * 1000).toLocaleDateString();
+          li.textContent = `${el.name} — ${el.points} (${d})`;
+          highscoreEl.appendChild(li);
+        });
+      })
+      .catch(() => {});
   }
 
   // UI
