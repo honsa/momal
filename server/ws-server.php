@@ -38,4 +38,3 @@ $server = new IoServer(
 
 echo "Momal WebSocket server listening on ws://{$host}:{$port}\n";
 $server->run();
-

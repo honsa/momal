@@ -24,7 +24,8 @@ final class HighscoreStore
     public function top(int $limit = 20): array
     {
         $all = $this->readAll();
-        \usort($all, static fn($a, $b) => ($b['points'] <=> $a['points']) ?: ($b['updatedAt'] <=> $a['updatedAt']));
+        \usort($all, static fn ($a, $b) => ($b['points'] <=> $a['points']) ?: ($b['updatedAt'] <=> $a['updatedAt']));
+
         return \array_slice($all, 0, $limit);
     }
 
@@ -88,6 +89,7 @@ final class HighscoreStore
             }
             $out[] = ['name' => $name, 'points' => $points, 'updatedAt' => $updatedAt];
         }
+
         return $out;
     }
 

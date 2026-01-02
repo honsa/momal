@@ -128,6 +128,7 @@ final class Room
         if ($next >= \count($ids)) {
             $next = 0;
         }
+
         return $ids[$next];
     }
 
@@ -137,6 +138,7 @@ final class Room
             return 0;
         }
         $elapsed = \time() - $this->roundStartedAt;
+
         return \max(0, $this->roundDurationSec - $elapsed);
     }
 
@@ -153,6 +155,7 @@ final class Room
                 return false;
             }
         }
+
         return true;
     }
 }

@@ -16,4 +16,3 @@ $limit = max(1, min(100, $limit));
 echo json_encode([
     'top' => $store->top($limit),
 ], JSON_UNESCAPED_UNICODE);
-

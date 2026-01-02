@@ -144,6 +144,7 @@ final class MomalServer implements MessageComponentInterface
 
         if ($roomId === '') {
             $this->send($conn, ['type' => 'error', 'message' => 'Room-Code fehlt']);
+
             return;
         }
 
@@ -276,6 +277,7 @@ final class MomalServer implements MessageComponentInterface
         $room->startRound($this->words);
         if ($room->state !== Room::STATE_IN_ROUND || $room->drawerConnectionId === null) {
             $this->broadcastSystem($room, 'Mindestens 2 Spieler nötig, um zu starten.');
+
             return;
         }
 
@@ -434,12 +436,14 @@ final class MomalServer implements MessageComponentInterface
         if (\method_exists($conn, 'resourceId')) {
             /** @var mixed $id */
             $id = $conn->resourceId();
+
             return (string)$id;
         }
 
         if (\property_exists($conn, 'resourceId')) {
             /** @var mixed $id */
             $id = $conn->resourceId;
+
             return (string)$id;
         }
 
@@ -457,4 +461,3 @@ final class MomalServer implements MessageComponentInterface
         $conn->send($json);
     }
 }
-

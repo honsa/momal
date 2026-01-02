@@ -24,6 +24,7 @@ final class Player
     {
         $p = new self($this->connectionId, $name, $this->roomId);
         $p->score = $this->score;
+
         return $p;
     }
 

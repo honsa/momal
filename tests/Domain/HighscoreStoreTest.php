@@ -70,4 +70,3 @@ final class HighscoreStoreTest extends TestCase
         self::assertSame(['C', 'B'], [$top[0]['name'], $top[1]['name']]);
     }
 }
-

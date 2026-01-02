@@ -17,7 +17,7 @@ final class Words
         $this->words = $words ?: [
             'Katze', 'Hund', 'Auto', 'Fahrrad', 'Sonne', 'Mond', 'Baum', 'Haus', 'Pizza', 'Gitarre',
             'Elefant', 'Regenschirm', 'Schneemann', 'Rakete', 'Schiff', 'Brille', 'Kaffee', 'Buch',
-            'Schlüssel', 'Herz', 'Blume', 'Wolke', 'Kuchen', 'Handy', 'Kamera'
+            'Schlüssel', 'Herz', 'Blume', 'Wolke', 'Kuchen', 'Handy', 'Kamera',
         ];
     }
 

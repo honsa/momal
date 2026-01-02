@@ -87,4 +87,3 @@ final class RoomTest extends TestCase
         self::assertSame(0, $room->timeLeft());
     }
 }
-
