@@ -13,15 +13,12 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           extensions: dom, xml, xmlwriter, mbstring
           coverage: none
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress
 
-      - name: PHPStan
-        run: composer stan
-
-      - name: PHPUnit
-        run: composer test
+      - name: Quality gates
+        run: composer check
