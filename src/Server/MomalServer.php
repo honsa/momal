@@ -32,6 +32,14 @@ final class MomalServer implements MessageComponentInterface
 
     private const CHAT_RATE_LIMIT_MS = 400;
 
+    /**
+     * Simple per-connection rate limiting for draw events.
+     * @var array<string, float>
+     */
+    private array $lastDrawAtMs = [];
+
+    private const DRAW_RATE_LIMIT_MS = 40;
+
     public function __construct(
         private readonly Words $words,
         private readonly HighscoreStore $highscoreStore
@@ -136,6 +144,7 @@ final class MomalServer implements MessageComponentInterface
 
         unset($this->connections[$cid]);
         unset($this->lastChatAtMs[$cid]);
+        unset($this->lastDrawAtMs[$cid]);
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e): void
@@ -349,6 +358,15 @@ final class MomalServer implements MessageComponentInterface
     private function handleDrawEvent(ConnectionInterface $from, array $data): void
     {
         $cid = $this->connectionId($from);
+
+        // Rate limit draw events.
+        $nowMs = microtime(true) * 1000;
+        $last = $this->lastDrawAtMs[$cid] ?? null;
+        if ($last !== null && ($nowMs - $last) < self::DRAW_RATE_LIMIT_MS) {
+            return;
+        }
+        $this->lastDrawAtMs[$cid] = $nowMs;
+
         $player = $this->players[$cid] ?? null;
         if (!$player) {
             return;
