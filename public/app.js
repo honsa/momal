@@ -599,6 +599,55 @@
       .catch(() => {});
   }
 
+  // draw v2 sequencing (optional)
+  let expectedDrawSeq = null; // number|null
+  const pendingBatches = new Map(); // seq -> {events:[], tsMs:number|null}
+  let gapTimer = null;
+
+  function scheduleGapCheck() {
+    if (gapTimer !== null) return;
+    gapTimer = window.setTimeout(() => {
+      gapTimer = null;
+      // If we still have a gap after a short wait, just render what we have.
+      // This avoids long stalls on packet loss.
+      drainPendingBatches(true);
+    }, 120);
+  }
+
+  function drainPendingBatches(force = false) {
+    if (expectedDrawSeq === null) return;
+
+    while (pendingBatches.has(expectedDrawSeq)) {
+      const batchObj = pendingBatches.get(expectedDrawSeq);
+      pendingBatches.delete(expectedDrawSeq);
+
+      const events = batchObj && Array.isArray(batchObj.events) ? batchObj.events : [];
+      const tsMs = batchObj && Number.isFinite(batchObj.tsMs) ? Number(batchObj.tsMs) : null;
+
+      events.forEach((ev) => enqueueRender(ev, { tsMs }));
+      expectedDrawSeq += 1;
+      force = false;
+    }
+
+    if (force && pendingBatches.size > 0) {
+      // render lowest seq we have to avoid visible freezing
+      const keys = Array.from(pendingBatches.keys()).sort((a, b) => a - b);
+      const k = keys[0];
+      const batchObj = pendingBatches.get(k);
+      pendingBatches.delete(k);
+
+      if (typeof k === 'number') expectedDrawSeq = k + 1;
+
+      const events = batchObj && Array.isArray(batchObj.events) ? batchObj.events : [];
+      const tsMs = batchObj && Number.isFinite(batchObj.tsMs) ? Number(batchObj.tsMs) : null;
+
+      events.forEach((ev) => enqueueRender(ev, { tsMs }));
+
+      // try draining following seqs
+      drainPendingBatches(false);
+    }
+  }
+
   // UI
   btnJoin.onclick = () => {
     const name = nameEl.value.trim() || 'Spieler';
