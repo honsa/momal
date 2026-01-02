@@ -87,7 +87,7 @@ final class MomalServer implements MessageComponentInterface
         $this->lastTickAt = $now;
 
         foreach ($this->rooms as $room) {
-            if ($room->state !== 'in_round') {
+            if ($room->state !== Room::STATE_IN_ROUND) {
                 continue;
             }
 
@@ -114,7 +114,7 @@ final class MomalServer implements MessageComponentInterface
                 $this->broadcastSystem($room, $player->name . ' hat den Raum verlassen.');
 
                 // If the current drawer leaves mid-round, end round cleanly.
-                if ($room->state === 'in_round' && $room->drawerConnectionId === null) {
+                if ($room->state === Room::STATE_IN_ROUND && $room->drawerConnectionId === null) {
                     $this->endRound($room, 'Zeichner hat verlassen.');
                 }
 
@@ -194,7 +194,7 @@ final class MomalServer implements MessageComponentInterface
         ]);
 
         // Classic mode: treat every chat message as a guess while in round.
-        if ($room->state === 'in_round') {
+        if ($room->state === Room::STATE_IN_ROUND) {
             $this->evaluateGuess($room, $player, $text);
         }
     }
@@ -209,7 +209,7 @@ final class MomalServer implements MessageComponentInterface
     {
         $cid = $player->connectionId;
 
-        if ($room->state !== 'in_round') {
+        if ($room->state !== Room::STATE_IN_ROUND) {
             return;
         }
         if ($room->drawerConnectionId === $cid) {
@@ -274,7 +274,7 @@ final class MomalServer implements MessageComponentInterface
         }
 
         $room->startRound($this->words);
-        if ($room->state !== 'in_round' || $room->drawerConnectionId === null) {
+        if ($room->state !== Room::STATE_IN_ROUND || $room->drawerConnectionId === null) {
             $this->broadcastSystem($room, 'Mindestens 2 Spieler nötig, um zu starten.');
             return;
         }
@@ -309,7 +309,7 @@ final class MomalServer implements MessageComponentInterface
             return;
         }
 
-        if ($room->state !== 'in_round' || $room->drawerConnectionId !== $cid) {
+        if ($room->state !== Room::STATE_IN_ROUND || $room->drawerConnectionId !== $cid) {
             return;
         }
 
@@ -355,10 +355,10 @@ final class MomalServer implements MessageComponentInterface
 
     private function endRound(Room $room, string $reason): void
     {
-        if ($room->state !== 'in_round') {
+        if ($room->state !== Room::STATE_IN_ROUND) {
             return;
         }
-        $room->state = 'round_end';
+        $room->state = Room::STATE_ROUND_END;
 
         // bump highscores
         foreach ($room->players as $p) {
@@ -374,10 +374,7 @@ final class MomalServer implements MessageComponentInterface
         $this->broadcastRoomSnapshot($room);
 
         // Back to lobby state automatically, keep scores
-        $room->state = 'lobby';
-        $room->word = null;
-        $room->drawerConnectionId = null;
-        $room->guessed = [];
+        $room->resetRoundState();
 
         $this->broadcastRoomSnapshot($room);
     }
