@@ -6,4 +6,16 @@
 
   <!-- Monogram M -->
   <path d="M20 44V20l12 16 12-16v24" fill="none" stroke="#cfe3ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Paintbrush (top-right) -->
+  <g transform="translate(45 15) rotate(25)">
+    <!-- handle -->
+    <rect x="-1.2" y="8" width="2.4" height="16" rx="1.2" fill="#cfe3ff" opacity="0.9"/>
+    <!-- ferrule -->
+    <rect x="-3" y="5" width="6" height="4" rx="1" fill="#a9b7c8"/>
+    <!-- bristles (3 colors) -->
+    <path d="M-3 5c0-3 1.5-5 3-5s3 2 3 5" fill="#ffd54a"/>
+    <path d="M-3 5c0-2 1.5-4 3-4s3 2 3 4" fill="#ff4d6d" opacity="0.9"/>
+    <path d="M-3 5c0-1.2 1.5-3 3-3s3 1.8 3 3" fill="#4da3ff" opacity="0.9"/>
+  </g>
 </svg>
