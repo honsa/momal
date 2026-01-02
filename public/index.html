@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Momal – Montagsmalen</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">Momal</div>
+    <div class="status" id="status">offline</div>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <h2>Raum</h2>
+      <div class="row">
+        <label>Name</label>
+        <input id="name" maxlength="20" placeholder="Dein Name" />
+      </div>
+      <div class="row">
+        <label>Room-Code</label>
+        <input id="roomId" maxlength="6" placeholder="z.B. ABC123" />
+      </div>
+      <div class="row gap">
+        <button id="btnJoin">Beitreten</button>
+        <button id="btnStart" disabled>Runde starten (Host)</button>
+      </div>
+
+      <h3>Spieler</h3>
+      <ul id="players" class="players"></ul>
+
+      <details>
+        <summary>Highscore</summary>
+        <ol id="highscore" class="highscore"></ol>
+      </details>
+    </section>
+
+    <section class="panel canvasPanel">
+      <div class="canvasTop">
+        <div>
+          <div class="small">Runde: <span id="roundNumber">-</span></div>
+          <div class="small">Zeit: <span id="timeLeft">-</span></div>
+        </div>
+        <div class="wordBox">
+          <div class="small">Wort (nur Zeichner)</div>
+          <div id="secretWord" class="word">—</div>
+        </div>
+        <div class="tools">
+          <label class="small">Farbe</label>
+          <input type="color" id="color" value="#000000" />
+          <label class="small">Breite</label>
+          <input type="range" id="width" min="1" max="12" value="4" />
+          <button id="btnClear" disabled>Löschen</button>
+        </div>
+      </div>
+      <canvas id="canvas" width="900" height="520"></canvas>
+      <div class="hint" id="hint">Tipp: Host startet die Runde. Zeichner zeichnet, alle anderen raten im Chat.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Chat / Antworten</h2>
+      <div id="chat" class="chat"></div>
+      <div class="row gap">
+        <input id="chatInput" placeholder="Antwort / Chat…" maxlength="200" />
+        <button id="btnSend">Senden</button>
+      </div>
+      <div class="small muted">Hinweis: Richtige Lösung wird automatisch erkannt (exakt, ohne Tippfehler-Toleranz im MVP).</div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
+
