@@ -22,7 +22,7 @@ input,button{border-radius:10px;border:1px solid #283544;background:#0b1118;colo
 button{cursor:pointer;background:#182433}
 button:disabled{opacity:.5;cursor:not-allowed}
 #canvas{display:block;width:100%;height:auto;background:#ffffff;touch-action:none;cursor:crosshair}
-body.is-drawing #canvas{cursor:url('brush-cursor.svg') 12 41, crosshair}
+body.is-drawing #canvas{cursor:url('brush-cursor.svg') 41 42, crosshair}
 .players,.highscore{margin:0;padding-left:18px}
 .players li{margin:6px 0}
 .highscoreTop{margin:8px 0 10px;padding:10px 12px;border:1px dashed #2d3b4b;border-radius:12px;background:#0b1118}
