@@ -11,6 +11,7 @@ use Momal\Game\Room;
 use Ratchet\ConnectionInterface;
 use Ratchet\MessageComponentInterface;
 use Ratchet\RFC6455\Messaging\Frame;
+use Ratchet\RFC6455\Messaging\MessageInterface;
 use Ratchet\WebSocket\WsConnection;
 
 final class MomalServer implements MessageComponentInterface
@@ -118,7 +119,23 @@ final class MomalServer implements MessageComponentInterface
 
     public function onMessage(ConnectionInterface $from, $msg): void
     {
+        /** @var mixed $msg */
         $cid = $this->connectionId($from);
+
+        // Ratchet may pass RFC6455 Message/Frame objects. Normalize to string/bytes.
+        if ($msg instanceof MessageInterface) {
+            $payload = $msg->getPayload();
+
+            // If it looks like our binary draw protocol, handle it.
+            if (is_string($payload) && str_starts_with($payload, self::DRAW_BIN_MAGIC)) {
+                $this->handleBinary($from, $payload);
+
+                return;
+            }
+
+            // Otherwise treat it as text.
+            $msg = $payload;
+        }
 
         // Max performance: accept binary draw frames.
         if (is_string($msg) && str_starts_with($msg, self::DRAW_BIN_MAGIC)) {
