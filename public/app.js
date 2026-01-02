@@ -351,16 +351,13 @@
       // Max performance path: binary draw frames.
       const decoded = tryDecodeBinaryFrame(ev.data);
       if (decoded) {
-        // Keep time model in sync.
         if (Number.isFinite(decoded.tsMs)) updateTimeOffset(Number(decoded.tsMs));
 
-        // Debug: show at least once that binary draw arrives
         if (!connect._sawBin) {
           connect._sawBin = true;
           showToast('Draw: bin OK');
         }
 
-        // Render immediately via smooth queue.
         enqueueRender(decoded.payload, { tsMs: decoded.tsMs });
         return;
       }
@@ -406,34 +403,39 @@
           case 'round:word':
             secretWordEl.textContent = msg.word;
             break;
-          case 'draw:batch':
+          case 'draw:batch': {
             if (!connect._sawBatch) {
               connect._sawBatch = true;
               showToast('Draw: batch OK');
             }
-            {
-              const seq = Number(msg.seq);
-              const events = Array.isArray(msg.events) ? msg.events : [];
-              if (!Number.isFinite(seq) || events.length === 0) {
-                break;
-              }
-              if (Number.isFinite(msg.tsMs)) {
-                updateTimeOffset(Number(msg.tsMs));
-              }
-              if (expectedDrawSeq === null) {
-                expectedDrawSeq = seq;
-              }
-              pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
-              if (seq !== expectedDrawSeq) {
-                scheduleGapCheck();
-                drainPendingBatchesWithinWindow();
-              }
-              drainPendingBatches(false);
+
+            const seq = Number(msg.seq);
+            const events = Array.isArray(msg.events) ? msg.events : [];
+
+            if (!Number.isFinite(seq) || events.length === 0) {
               break;
             }
+
+            if (Number.isFinite(msg.tsMs)) {
+              updateTimeOffset(Number(msg.tsMs));
+            }
+
+            if (expectedDrawSeq === null) {
+              expectedDrawSeq = seq;
+            }
+
+            pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
+
+            if (seq !== expectedDrawSeq) {
+              scheduleGapCheck();
+              drainPendingBatchesWithinWindow();
+            }
+
+            drainPendingBatches(false);
+            break;
+          }
           case 'draw:event':
           case 'draw:stroke':
-            // Legacy: queue for smooth render
             if (msg.payload) {
               enqueueRender(msg.payload);
             }
@@ -444,16 +446,17 @@
             pendingBatches.clear();
             break;
           case 'round:ended':
-            addChatLine('System', `${msg.reason} Wort war: ${msg.word}`, Math.floor(Date.now()/1000));
+            addChatLine('System', `${msg.reason} Wort war: ${msg.word}` , Math.floor(Date.now()/1000));
             drawerConnectionId = null;
             secretWordEl.textContent = '—';
             btnClear.disabled = true;
             expectedDrawSeq = null;
             pendingBatches.clear();
             break;
+          default:
+            break;
         }
-      } catch (err) {
-        // If we get non-JSON text frames (shouldn't happen), ignore safely.
+      } catch (_) {
         return;
       }
     };
