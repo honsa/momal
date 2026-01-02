@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="#0f1720"/>
-  <path d="M18 22c0-3 2-5 5-5h18c3 0 5 2 5 5v12c0 3-2 5-5 5H29l-7 7v-7h1c-3 0-5-2-5-5V22z" fill="#182433" stroke="#2b3948" stroke-width="2"/>
-  <path d="M26 26v10" stroke="#cfe3ff" stroke-width="4" stroke-linecap="round"/>
-  <path d="M26 36l5-5 5 5" stroke="#cfe3ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M40 26v10" stroke="#cfe3ff" stroke-width="4" stroke-linecap="round"/>
-</svg>
 
+  <!-- subtle inner plate -->
+  <rect x="8" y="8" width="48" height="48" rx="12" fill="#182433" stroke="#2b3948" stroke-width="2"/>
+
+  <!-- Monogram M -->
+  <path d="M20 44V20l12 16 12-16v24" fill="none" stroke="#cfe3ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
