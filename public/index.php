@@ -11,6 +11,15 @@ if ($path === '/' || $path === '') {
     $path = '/index.html';
 }
 
+// Execute PHP endpoints under /api (instead of serving source code).
+if (str_starts_with($path, '/api/') && str_ends_with($path, '.php')) {
+    $file = __DIR__ . $path;
+    if (is_file($file)) {
+        require $file;
+        exit;
+    }
+}
+
 $file = __DIR__ . $path;
 
 if (is_file($file)) {
@@ -32,4 +41,3 @@ if (is_file($file)) {
 
 http_response_code(404);
 echo 'Not found';
-
