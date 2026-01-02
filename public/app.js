@@ -33,6 +33,26 @@
   let drawerConnectionId = null;
   let state = 'lobby';
 
+  // Per-round UI accent color (server decides)
+  let lastRoundAccent = null;
+
+  function setAccentColor(color) {
+    if (!color || typeof color !== 'string') return;
+    document.body.style.setProperty('--accent', color);
+    lastRoundAccent = color;
+  }
+
+  function maybeSetDrawerDefaultColor() {
+    if (!canDraw()) return;
+    const cur = (colorEl && typeof colorEl.value === 'string') ? colorEl.value : '';
+    const norm = String(cur || '').toLowerCase();
+    if (norm === '' || norm === '#000000' || norm === '#000') {
+      if (lastRoundAccent) {
+        colorEl.value = lastRoundAccent;
+      }
+    }
+  }
+
   // Drawing state + sending (must be declared before use)
   let isDrawing = false;
   let last = null;
@@ -405,6 +425,10 @@
             secretWordEl.textContent = '—';
             clearCanvasLocal();
 
+            if (msg.accentColor) {
+              setAccentColor(msg.accentColor);
+            }
+
             // Ensure canvas is ready on receivers too (layout can lag on newly opened tabs)
             window.requestAnimationFrame(() => {
               canvasTransformReady = false;
@@ -414,6 +438,11 @@
             hintEl.textContent = (drawerConnectionId === myConnectionId)
               ? 'Du bist Zeichner. Zeichne das Wort (oben erscheint es gleich).'
               : 'Rate im Chat!';
+
+            // If I'm the drawer this round, optionally preselect the accent color.
+            if (drawerConnectionId === myConnectionId) {
+              maybeSetDrawerDefaultColor();
+            }
             break;
           case 'round:word':
             secretWordEl.textContent = msg.word;

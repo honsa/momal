@@ -486,12 +486,15 @@ final class MomalServer implements MessageComponentInterface
             return;
         }
 
+        $accentColor = $this->pickRoundAccentColor();
+
         $this->broadcast($room, [
             'type' => 'round:started',
             'drawerConnectionId' => $room->drawerConnectionId,
             'roundDurationSec' => $room->roundDurationSec,
             'roundStartedAt' => $room->roundStartedAt,
             'roundNumber' => $room->roundNumber,
+            'accentColor' => $accentColor,
         ]);
 
         // send secret word only to drawer
@@ -975,5 +978,25 @@ final class MomalServer implements MessageComponentInterface
             $binFrame = new Frame($frame, true, Frame::OP_BINARY);
             $conn->send($binFrame);
         }
+    }
+
+    /** @var list<string> */
+    private const ROUND_ACCENT_COLORS = [
+        // High-contrast friendly palette (avoid red/green-only confusion).
+        '#2563eb', // blue
+        '#7c3aed', // purple
+        '#ea580c', // orange
+        '#0891b2', // cyan
+        '#0f766e', // teal
+        '#b91c1c', // deep red
+        '#334155', // slate
+    ];
+
+    private function pickRoundAccentColor(): string
+    {
+        // Use random_int for deterministic bounds and better randomness.
+        $i = random_int(0, count(self::ROUND_ACCENT_COLORS) - 1);
+
+        return self::ROUND_ACCENT_COLORS[$i];
     }
 }

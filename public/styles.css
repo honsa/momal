@@ -1,16 +1,16 @@
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0b0f14;color:#e8eef7}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0b0f14;color:#e8eef7;--accent:#2563eb}
 .header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #202a33;background:#0d131a;position:sticky;top:0}
 .brand{font-weight:700;letter-spacing:.5px}
-.status{font-size:12px;padding:4px 8px;border-radius:999px;background:#1d2731;color:#cfe3ff}
+.status{font-size:12px;padding:4px 8px;border-radius:999px;background:#1d2731;color:#cfe3ff;border:1px solid color-mix(in srgb,var(--accent) 35%, transparent)}
 .toast{position:sticky;top:56px;z-index:10;margin:10px 14px 0;padding:10px 12px;border:1px solid #3a2a2a;background:#2a1414;color:#ffd7d7;border-radius:12px}
 .layout{display:grid;grid-template-columns:320px 1fr 360px;gap:14px;padding:14px}
 .panel{background:#0f1720;border:1px solid #1d2731;border-radius:12px;padding:12px}
 .canvasPanel{padding:0;overflow:hidden}
 .canvasTop{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid #1d2731}
 .roundInfo{display:flex;flex-direction:column;gap:8px}
-.timePill{display:inline-flex;align-items:baseline;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid #2d3b4b;background:#111c28;min-width:140px}
+.timePill{display:inline-flex;align-items:baseline;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 45%, #2d3b4b);background:#111c28;min-width:140px}
 .timeLabel{font-size:12px;color:#a9b7c8}
-.timeValue{font-size:22px;font-weight:800;letter-spacing:.4px;color:#e8eef7}
+.timeValue{font-size:22px;font-weight:800;letter-spacing:.4px;color:#e8eef7;text-shadow:0 0 0.5px var(--accent)}
 .wordBox{min-width:220px}
 .word{font-size:20px;font-weight:700}
 .tools{display:flex;gap:8px;align-items:center}
@@ -19,7 +19,7 @@
 .row{display:flex;flex-direction:column;gap:6px;margin:10px 0}
 .row.gap{flex-direction:row;align-items:center}
 input,button{border-radius:10px;border:1px solid #283544;background:#0b1118;color:#e8eef7;padding:10px}
-button{cursor:pointer;background:#182433}
+button{cursor:pointer;background:#182433;border-color:color-mix(in srgb,var(--accent) 30%, #283544)}
 button:disabled{opacity:.5;cursor:not-allowed}
 #canvas{display:block;width:100%;height:auto;background:#ffffff;touch-action:none;cursor:crosshair}
 body.is-drawing #canvas{cursor:url('brush-cursor.svg') 41 42, crosshair}
