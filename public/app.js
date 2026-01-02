@@ -38,8 +38,12 @@
 
   // Outgoing draw event batching
   // We send stroke chunks (polyline points) instead of many single segments.
-  const SEND_INTERVAL_MS = 12; // ~80fps (lower latency)
-  const MAX_POINTS_PER_CHUNK = 60;
+  const SEND_INTERVAL_MS = 16; // align with ~60fps to reduce jitter
+  const MAX_POINTS_PER_CHUNK = 120;
+
+  // Maximum allowed distance between consecutive points (normalized units).
+  // If the pointer jumps farther (fast movement / low event rate), we insert intermediate points.
+  const MAX_POINT_STEP = 0.006; // ~0.6% of canvas size
 
   let strokeColor = '#000000';
   let strokeWidth = 4;
@@ -399,6 +403,26 @@
     return normalizeCanvasPoint(e);
   }
 
+  function addPointWithResampling(prev, cur) {
+    const dx = cur.x - prev.x;
+    const dy = cur.y - prev.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist <= MAX_POINT_STEP) {
+      pendingPoints.push(cur);
+      return;
+    }
+
+    const steps = Math.ceil(dist / MAX_POINT_STEP);
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      pendingPoints.push({
+        x: prev.x + dx * t,
+        y: prev.y + dy * t,
+      });
+    }
+  }
+
   function flushStrokeChunk(forceSinglePoint = false) {
     if (!canDraw()) return;
 
@@ -429,21 +453,33 @@
     pendingPoints = [];
   }
 
+  // Ensure we flush at most once per animation frame while drawing.
+  let flushScheduled = false;
+  function scheduleFrameFlush() {
+    if (flushScheduled) return;
+    flushScheduled = true;
+    window.requestAnimationFrame(() => {
+      flushScheduled = false;
+      // Send any accumulated points for low latency and consistent pacing.
+      flushStrokeChunk(false);
+
+      // If we're still drawing and points keep coming in, schedule next frame flush.
+      if (isDrawing && pendingPoints.length > 0) {
+        scheduleFrameFlush();
+      }
+    });
+  }
+
   function scheduleStrokeFlush() {
     if (sendTimer !== null) return;
 
-    // Use rAF for low latency when active, plus a small timeout as fallback.
+    // Flush soon (timeout) and also by frame pacing.
     sendTimer = window.setTimeout(() => {
       sendTimer = null;
-      flushStrokeChunk();
+      flushStrokeChunk(false);
     }, SEND_INTERVAL_MS);
 
-    window.requestAnimationFrame(() => {
-      if (sendTimer === null) return;
-      window.clearTimeout(sendTimer);
-      sendTimer = null;
-      flushStrokeChunk();
-    });
+    scheduleFrameFlush();
   }
 
   function onPointerDown(e) {
@@ -476,10 +512,11 @@
       w: strokeWidth
     });
 
-    pendingPoints.push(cur);
+    // Add points with resampling to avoid gaps on remote clients when drawing fast.
+    addPointWithResampling(last, cur);
 
     if (pendingPoints.length >= MAX_POINTS_PER_CHUNK) {
-      flushStrokeChunk();
+      flushStrokeChunk(false);
     } else {
       scheduleStrokeFlush();
     }
