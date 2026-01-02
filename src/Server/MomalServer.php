@@ -92,13 +92,9 @@ final class MomalServer implements MessageComponentInterface
     {
         // If we're behind Ratchet\WebSocket\WsServer, the passed connection is a WsConnection decorator.
         // Keep it, so later ->send() can emit proper binary frames.
-        if ($conn instanceof WsConnection) {
-            $cid = $this->connectionId($conn->getConnection());
-            $this->connections[$cid] = $conn;
-        } else {
-            $cid = $this->connectionId($conn);
-            $this->connections[$cid] = $conn;
-        }
+        // Important: WsConnection::getConnection() is protected, so we must not call it.
+        $cid = $this->connectionId($conn);
+        $this->connections[$cid] = $conn;
 
         $this->send($this->connections[$cid], [
             'type' => 'hello',
