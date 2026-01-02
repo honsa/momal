@@ -348,7 +348,6 @@
     };
 
     ws.onmessage = (ev) => {
-      // Max performance path: binary draw frames.
       const decoded = tryDecodeBinaryFrame(ev.data);
       if (decoded) {
         if (Number.isFinite(decoded.tsMs)) updateTimeOffset(Number(decoded.tsMs));
@@ -358,7 +357,17 @@
           showToast('Draw: bin OK');
         }
 
+        // Primary path: smooth render queue
         enqueueRender(decoded.payload, { tsMs: decoded.tsMs });
+
+        // Safety net: if something in the queue scheduling is off on this client,
+        // draw immediately as well (binary strokes are idempotent enough for this).
+        // This ensures remote canvases never stay blank.
+        if (!connect._forceImmediate) {
+          // no-op; keep for future feature flag
+        }
+        drawEvent(decoded.payload);
+
         return;
       }
 
