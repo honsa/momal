@@ -54,9 +54,13 @@ final class MomalServerBinaryDrawTest extends TestCase
         self::assertSame(1, ord($bin[5])); // type
 
         $seq = unpack('V', substr($bin, 6, 4));
+        self::assertIsArray($seq);
+        self::assertArrayHasKey(1, $seq);
         self::assertSame(42, (int)$seq[1]);
 
         $n = unpack('v', substr($bin, 20, 2));
+        self::assertIsArray($n);
+        self::assertArrayHasKey(1, $n);
         self::assertSame(3, (int)$n[1]);
 
         // and server still emits JSON draw:batch for compatibility
@@ -111,7 +115,10 @@ final class MomalServerBinaryDrawTest extends TestCase
             if (!is_array($decoded)) {
                 continue;
             }
-            if (($decoded['type'] ?? null) === $type) {
+            if (!array_key_exists('type', $decoded)) {
+                continue;
+            }
+            if ($decoded['type'] === $type) {
                 return $decoded;
             }
         }

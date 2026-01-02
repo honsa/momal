@@ -80,6 +80,39 @@ Beispiel:
 MOMAL_CHAT_RATE_LIMIT_MS=250 MOMAL_DRAW_RATE_LIMIT_MS=25 php server/ws-server.php
 ```
 
+## Debug Tools
+
+### WebSocket Smoke Test
+
+Wenn du prüfen willst, ob ein Client überhaupt WebSocket-Nachrichten (JSON + Binary `MOML` Frames) empfängt:
+
+- Öffne: `http://localhost:8000/ws-smoke.html`
+
+Die Seite loggt:
+
+- `json type=...` (z.B. `hello`, `room:snapshot`, `draw:batch`)
+- `binary len=... prefix=MOML` (Binary Draw Frames)
+
+Das ist hilfreich bei „Canvas bleibt weiß“ oder „nichts kommt beim Spieler an“.
+
+### Server Debug Logging
+
+Der WebSocket-Server hat optionales Debug-Logging (für Connect/Join/Draw/Broadcast). Aktivieren:
+
+```sh
+MOMAL_DEBUG_WS=1 php server/ws-server.php
+```
+
+Oder mit dem Dev-Script:
+
+```sh
+MOMAL_DEBUG_WS=1 ./bin/dev.sh
+```
+
+Die Logs landen in:
+
+- `var/log/ws-server.log`
+
 ## Tests & Code-Analyse
 
 ### Pop!_OS Install-Hinweis
