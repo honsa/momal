@@ -352,20 +352,10 @@
       if (decoded) {
         if (Number.isFinite(decoded.tsMs)) updateTimeOffset(Number(decoded.tsMs));
 
-        if (!connect._sawBin) {
-          connect._sawBin = true;
-          showToast('Draw: bin OK');
-        }
-
         // Primary path: smooth render queue
         enqueueRender(decoded.payload, { tsMs: decoded.tsMs });
 
-        // Safety net: if something in the queue scheduling is off on this client,
-        // draw immediately as well (binary strokes are idempotent enough for this).
-        // This ensures remote canvases never stay blank.
-        if (!connect._forceImmediate) {
-          // no-op; keep for future feature flag
-        }
+        // Safety net: draw immediately as well so remote canvases never stay blank.
         drawEvent(decoded.payload);
 
         return;
@@ -413,11 +403,6 @@
             secretWordEl.textContent = msg.word;
             break;
           case 'draw:batch': {
-            if (!connect._sawBatch) {
-              connect._sawBatch = true;
-              showToast('Draw: batch OK');
-            }
-
             const seq = Number(msg.seq);
             const events = Array.isArray(msg.events) ? msg.events : [];
 
