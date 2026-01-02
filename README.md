@@ -54,6 +54,19 @@ Dann im Browser öffnen:
 
 - Wenn `ws://localhost:8080` nicht geht: Port belegt? Dann `MOMAL_WS_PORT=8090 php server/ws-server.php` und in `public/app.js` den Port anpassen.
 
+### Rate limiting (Spam-Schutz)
+
+Der Server begrenzt die Frequenz von Chat/Guess und Draw-Events pro Connection.
+
+- `MOMAL_CHAT_RATE_LIMIT_MS` (Default: `400`) – minimale Zeit zwischen Chat/Guess-Nachrichten
+- `MOMAL_DRAW_RATE_LIMIT_MS` (Default: `40`) – minimale Zeit zwischen Draw-Events
+
+Beispiel:
+
+```sh
+MOMAL_CHAT_RATE_LIMIT_MS=250 MOMAL_DRAW_RATE_LIMIT_MS=25 php server/ws-server.php
+```
+
 ## Tests & Code-Analyse
 
 ### Pop!_OS Install-Hinweis

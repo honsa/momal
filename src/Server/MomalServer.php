@@ -30,7 +30,8 @@ final class MomalServer implements MessageComponentInterface
      */
     private array $lastChatAtMs = [];
 
-    private const CHAT_RATE_LIMIT_MS = 400;
+    private const DEFAULT_CHAT_RATE_LIMIT_MS = 400;
+    private int $chatRateLimitMs;
 
     /**
      * Simple per-connection rate limiting for draw events.
@@ -38,7 +39,8 @@ final class MomalServer implements MessageComponentInterface
      */
     private array $lastDrawAtMs = [];
 
-    private const DRAW_RATE_LIMIT_MS = 40;
+    private const DEFAULT_DRAW_RATE_LIMIT_MS = 40;
+    private int $drawRateLimitMs;
 
     /** @var callable(): float */
     private $clockMs;
@@ -49,6 +51,20 @@ final class MomalServer implements MessageComponentInterface
         ?callable $clockMs = null
     ) {
         $this->clockMs = $clockMs ?? static fn (): float => microtime(true) * 1000;
+
+        $this->chatRateLimitMs = $this->envInt('MOMAL_CHAT_RATE_LIMIT_MS', self::DEFAULT_CHAT_RATE_LIMIT_MS);
+        $this->drawRateLimitMs = $this->envInt('MOMAL_DRAW_RATE_LIMIT_MS', self::DEFAULT_DRAW_RATE_LIMIT_MS);
+    }
+
+    private function envInt(string $key, int $default): int
+    {
+        $raw = getenv($key);
+        if ($raw === false) {
+            return $default;
+        }
+        $v = (int)$raw;
+
+        return $v >= 0 ? $v : $default;
     }
 
     public function onOpen(ConnectionInterface $conn): void
@@ -227,7 +243,7 @@ final class MomalServer implements MessageComponentInterface
         // Rate limit (chat + guess share this path).
         $nowMs = ($this->clockMs)();
         $last = $this->lastChatAtMs[$cid] ?? null;
-        if ($last !== null && ($nowMs - $last) < self::CHAT_RATE_LIMIT_MS) {
+        if ($last !== null && ($nowMs - $last) < $this->chatRateLimitMs) {
             return;
         }
         $this->lastChatAtMs[$cid] = $nowMs;
@@ -367,7 +383,7 @@ final class MomalServer implements MessageComponentInterface
         // Rate limit draw events.
         $nowMs = ($this->clockMs)();
         $last = $this->lastDrawAtMs[$cid] ?? null;
-        if ($last !== null && ($nowMs - $last) < self::DRAW_RATE_LIMIT_MS) {
+        if ($last !== null && ($nowMs - $last) < $this->drawRateLimitMs) {
             return;
         }
         $this->lastDrawAtMs[$cid] = $nowMs;
