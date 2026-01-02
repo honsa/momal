@@ -60,7 +60,6 @@ final class MomalServer implements MessageComponentInterface
     private const DRAW_OUTBOX_FLUSH_INTERVAL_MS = 8; // was higher; lower => less latency
     private const DRAW_OUTBOX_MAX_EVENTS_PER_BATCH = 80; // bigger batches under fast strokes
 
-
     public function __construct(
         private readonly Words $words,
         private readonly HighscoreStore $highscoreStore,

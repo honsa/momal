@@ -51,73 +51,88 @@
   let sendTimer = null;
 
   // Incoming draw rendering queue (smooth remote rendering)
-  const renderQueue = [];
+  // We use a tiny jitter buffer so rendering is stable even if network delivery is bursty.
+  const renderQueue = []; // items: {ev: object, dueMs: number}
   let renderScheduled = false;
 
-  // draw v2 sequencing (optional)
-  let expectedDrawSeq = null; // number|null
-  const pendingBatches = new Map(); // seq -> [events]
-  let gapTimer = null;
+  // Perfect smoothness mode: render a constant small delay behind the server clock.
+  // This removes micro-stutters at the cost of a tiny fixed latency.
+  const JITTER_BUFFER_MS = 45;
+  const EVENT_SPACING_MS = 1; // spread events a bit when a large batch arrives at once
+  let lastDueMs = 0;
+  let timeOffsetMs = null; // serverTsMs - performance.now()
 
-  function scheduleGapCheck() {
-    if (gapTimer !== null) return;
-    gapTimer = window.setTimeout(() => {
-      gapTimer = null;
-      // If we still have a gap after a short wait, just render what we have.
-      // This avoids long stalls on packet loss.
-      drainPendingBatches(true);
-    }, 120);
+  function updateTimeOffset(serverTsMs) {
+    if (!Number.isFinite(serverTsMs)) return;
+    const localNow = performance.now();
+    const candidate = serverTsMs - localNow;
+    if (timeOffsetMs === null) {
+      timeOffsetMs = candidate;
+      return;
+    }
+    // Smooth the offset to avoid jumps if clocks drift.
+    timeOffsetMs = (timeOffsetMs * 0.9) + (candidate * 0.1);
   }
 
-  function drainPendingBatches(force = false) {
-    if (expectedDrawSeq === null) return;
-
-    while (pendingBatches.has(expectedDrawSeq)) {
-      const batch = pendingBatches.get(expectedDrawSeq);
-      pendingBatches.delete(expectedDrawSeq);
-      if (Array.isArray(batch)) {
-        batch.forEach((ev) => enqueueRender(ev));
-      }
-      expectedDrawSeq += 1;
-      force = false;
-    }
-
-    if (force && pendingBatches.size > 0) {
-      // render lowest seq we have to avoid visible freezing
-      const keys = Array.from(pendingBatches.keys()).sort((a, b) => a - b);
-      const k = keys[0];
-      const batch = pendingBatches.get(k);
-      pendingBatches.delete(k);
-      if (typeof k === 'number') expectedDrawSeq = k + 1;
-      if (Array.isArray(batch)) batch.forEach((ev) => enqueueRender(ev));
-      // try draining following seqs
-      drainPendingBatches(false);
-    }
+  function localNowAsServerMs() {
+    if (timeOffsetMs === null) return performance.now();
+    return performance.now() + timeOffsetMs;
   }
 
   function pumpRenderQueue() {
     const started = performance.now();
 
-    // Adaptive budget: if we have backlog, spend a bit more per frame to catch up.
-    const budgetMs = renderQueue.length > 100 ? 12 : (renderQueue.length > 20 ? 9 : 6);
+    // Budget small per frame; pacing handles bursts.
+    const budgetMs = renderQueue.length > 400 ? 12 : (renderQueue.length > 120 ? 9 : 6);
+
+    const nowServerMs = localNowAsServerMs();
+    let processed = 0;
 
     while (renderQueue.length > 0 && (performance.now() - started) < budgetMs) {
-      const ev = renderQueue.shift();
-      drawEvent(ev);
+      const item = renderQueue[0];
+      if (!item) {
+        renderQueue.shift();
+        continue;
+      }
+      if (item.dueMs > nowServerMs) {
+        break; // not yet due
+      }
+      renderQueue.shift();
+      drawEvent(item.ev);
+      processed++;
     }
 
     if (renderQueue.length > 0) {
       window.requestAnimationFrame(pumpRenderQueue);
     } else {
       renderScheduled = false;
+      lastDueMs = 0;
     }
   }
 
-  function enqueueRender(payload) {
+  function enqueueRender(payload, meta = null) {
     // ignore null/undefined payloads
     if (!payload) return;
 
-    renderQueue.push(payload);
+    // If we have server timestamp, update time mapping.
+    const tsMs = meta && Number.isFinite(meta.tsMs) ? Number(meta.tsMs) : null;
+    if (tsMs !== null) {
+      updateTimeOffset(tsMs);
+    }
+
+    const baseServerNow = localNowAsServerMs();
+
+    // Schedule events slightly in the future to absorb jitter.
+    // Keep monotonic dueMs so strokes stay continuous.
+    const baseDue = Math.max(
+      baseServerNow + JITTER_BUFFER_MS,
+      lastDueMs || 0
+    );
+
+    const dueMs = baseDue + (renderQueue.length === 0 ? 0 : EVENT_SPACING_MS);
+
+    renderQueue.push({ ev: payload, dueMs });
+    lastDueMs = dueMs;
 
     if (renderScheduled) return;
     renderScheduled = true;
@@ -206,12 +221,17 @@
             break;
           }
 
+          // Keep time mapping in sync for jitter buffer.
+          if (Number.isFinite(msg.tsMs)) {
+            updateTimeOffset(Number(msg.tsMs));
+          }
+
           if (expectedDrawSeq === null) {
             expectedDrawSeq = seq;
           }
 
           // If we're behind, buffer and try to drain in-order.
-          pendingBatches.set(seq, events);
+          pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
 
           if (seq !== expectedDrawSeq) {
             scheduleGapCheck();
@@ -567,7 +587,7 @@
   function refreshHighscore() {
     fetch('/api/highscore.php?limit=20')
       .then(r => r.json())
-      .then(data => {
+      .then data => {
         highscoreEl.innerHTML = '';
         (data.top || []).forEach(el => {
           const li = document.createElement('li');
