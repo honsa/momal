@@ -501,9 +501,39 @@
 
   function onPointerMove(e) {
     if (!isDrawing || !last || !canDraw()) return;
+
+    // Chrome/Edge: coalesced events give us higher frequency samples.
+    const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : null;
+
+    if (Array.isArray(events) && events.length > 0) {
+      for (const ce of events) {
+        const cur = canvasPos(ce);
+
+        // local draw segment for immediate feedback
+        drawEvent({
+          t: 'line',
+          x0: last.x, y0: last.y,
+          x1: cur.x, y1: cur.y,
+          c: strokeColor,
+          w: strokeWidth
+        });
+
+        addPointWithResampling(last, cur);
+        last = cur;
+
+        if (pendingPoints.length >= MAX_POINTS_PER_CHUNK) {
+          flushStrokeChunk(false);
+        }
+      }
+
+      scheduleStrokeFlush();
+      e.preventDefault();
+      return;
+    }
+
+    // Fallback: single event
     const cur = canvasPos(e);
 
-    // local draw segment for immediate feedback
     drawEvent({
       t: 'line',
       x0: last.x, y0: last.y,
@@ -512,7 +542,6 @@
       w: strokeWidth
     });
 
-    // Add points with resampling to avoid gaps on remote clients when drawing fast.
     addPointWithResampling(last, cur);
 
     if (pendingPoints.length >= MAX_POINTS_PER_CHUNK) {
