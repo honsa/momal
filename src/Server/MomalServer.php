@@ -237,6 +237,9 @@ final class MomalServer implements MessageComponentInterface
 
     public function onError(ConnectionInterface $conn, \Exception $e): void
     {
+        $this->dbg('error cid=' . $this->connectionId($conn) . ' ' . get_class($e) . ': ' . $e->getMessage());
+        $this->dbg($e->getTraceAsString());
+
         $conn->close();
     }
 
