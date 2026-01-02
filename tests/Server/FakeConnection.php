@@ -18,6 +18,8 @@ final class FakeConnection implements ConnectionInterface
     /** @var list<string> */
     public array $sentBinary = [];
 
+    public bool $closed = false;
+
     public function __construct(
         public int $resourceId,
     ) {
@@ -40,6 +42,6 @@ final class FakeConnection implements ConnectionInterface
 
     public function close(): void
     {
-        // no-op
+        $this->closed = true;
     }
 }

@@ -72,6 +72,9 @@ final class MomalServer implements MessageComponentInterface
 
     private RoomHighscoreStore $roomHighscoreStore;
 
+    private int $maxWsTextBytes;
+    private int $maxWsBinaryBytes;
+
     public function __construct(
         private readonly Words $words,
         HighscoreStore $highscoreStore,
@@ -87,6 +90,9 @@ final class MomalServer implements MessageComponentInterface
         // Keep legacy dependency for BC (may be used by older code / wiring).
         $this->highscoreStore = $highscoreStore;
         $this->roomHighscoreStore = new RoomHighscoreStore(__DIR__ . '/../../var/highscore-by-room.json');
+
+        $this->maxWsTextBytes = SecurityConfig::maxWsTextBytes();
+        $this->maxWsBinaryBytes = SecurityConfig::maxWsBinaryBytes();
     }
 
     /** @phpstan-ignore-next-line keep for BC */
@@ -136,8 +142,21 @@ final class MomalServer implements MessageComponentInterface
         if ($msg instanceof MessageInterface) {
             $payload = $msg->getPayload();
 
+            if (is_string($payload) && strlen($payload) > $this->maxWsTextBytes) {
+                $this->dbg('oversize text payload from=' . $cid . ' len=' . strlen($payload));
+                $from->close();
+
+                return;
+            }
+
             // If it looks like our binary draw protocol, handle it.
             if (is_string($payload) && str_starts_with($payload, self::DRAW_BIN_MAGIC)) {
+                if (strlen($payload) > $this->maxWsBinaryBytes) {
+                    $this->dbg('oversize binary payload from=' . $cid . ' len=' . strlen($payload));
+                    $from->close();
+
+                    return;
+                }
                 $this->handleBinary($from, $payload);
 
                 return;
@@ -147,8 +166,21 @@ final class MomalServer implements MessageComponentInterface
             $msg = $payload;
         }
 
+        if (is_string($msg) && strlen($msg) > $this->maxWsTextBytes) {
+            $this->dbg('oversize text msg from=' . $cid . ' len=' . strlen($msg));
+            $from->close();
+
+            return;
+        }
+
         // Max performance: accept binary draw frames.
         if (is_string($msg) && str_starts_with($msg, self::DRAW_BIN_MAGIC)) {
+            if (strlen($msg) > $this->maxWsBinaryBytes) {
+                $this->dbg('oversize binary msg from=' . $cid . ' len=' . strlen($msg));
+                $from->close();
+
+                return;
+            }
             $this->handleBinary($from, $msg);
 
             return;
