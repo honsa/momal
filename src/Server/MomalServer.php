@@ -110,13 +110,14 @@ final class MomalServer implements MessageComponentInterface
             $room = $this->rooms[$player->roomId] ?? null;
             if ($room) {
                 $room->removePlayer($cid);
-                $this->broadcastRoomSnapshot($room);
-                $this->broadcastSystem($room, $player->name . ' hat den Raum verlassen.');
 
                 // If the current drawer leaves mid-round, end round cleanly.
                 if ($room->state === Room::STATE_IN_ROUND && $room->drawerConnectionId === null) {
                     $this->endRound($room, 'Zeichner hat verlassen.');
                 }
+
+                $this->broadcastRoomSnapshot($room);
+                $this->broadcastSystem($room, $player->name . ' hat den Raum verlassen.');
 
                 if ($room->isEmpty()) {
                     unset($this->rooms[$room->id]);
@@ -385,12 +386,13 @@ final class MomalServer implements MessageComponentInterface
     {
         $players = [];
         foreach ($room->players as $cid => $p) {
+            $cidStr = (string)$cid;
             $players[] = [
-                'connectionId' => $cid,
+                'connectionId' => $cidStr,
                 'name' => $p->name,
                 'score' => $p->score,
-                'isHost' => $room->hostConnectionId === $cid,
-                'isDrawer' => $room->drawerConnectionId === $cid,
+                'isHost' => $room->hostConnectionId === $cidStr,
+                'isDrawer' => $room->drawerConnectionId === $cidStr,
             ];
         }
 

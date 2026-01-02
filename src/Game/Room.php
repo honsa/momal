@@ -60,11 +60,19 @@ final class Room
         unset($this->guessed[$connectionId]);
 
         if ($this->hostConnectionId === $connectionId) {
-            $this->hostConnectionId = \array_key_first($this->players) ?: null;
+            $nextHost = \array_key_first($this->players);
+            $this->hostConnectionId = $nextHost !== null ? (string)$nextHost : null;
+        }
+
+        // safety: keep host valid
+        if ($this->hostConnectionId !== null && !isset($this->players[$this->hostConnectionId])) {
+            $nextHost = \array_key_first($this->players);
+            $this->hostConnectionId = $nextHost !== null ? (string)$nextHost : null;
         }
 
         if ($this->drawerConnectionId === $connectionId) {
-            $this->resetRoundState();
+            // Keep the round state so the server can detect a missing drawer and end the round.
+            $this->drawerConnectionId = null;
         }
 
         if ($this->lastDrawerConnectionId === $connectionId) {
