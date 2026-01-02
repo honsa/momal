@@ -216,6 +216,11 @@ final class MomalServer implements MessageComponentInterface
             return; // drawer can't guess
         }
 
+        // already guessed correctly this round => ignore for scoring (and to avoid spam)
+        if (isset($room->guessed[$cid])) {
+            return;
+        }
+
         $guess = trim($guess);
         if ($guess === '') {
             return;
@@ -230,6 +235,9 @@ final class MomalServer implements MessageComponentInterface
         if (mb_strtolower($guess) !== mb_strtolower($word)) {
             return;
         }
+
+        // mark as guessed before any further actions
+        $room->guessed[$cid] = true;
 
         // scoring: earlier gets more
         $timeLeft = $room->timeLeft();
