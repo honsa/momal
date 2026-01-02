@@ -110,7 +110,8 @@ final class Room
 
     private function pickNextDrawer(): ?string
     {
-        $ids = \array_keys($this->players);
+        /** @var list<string> $ids */
+        $ids = \array_map('strval', \array_keys($this->players));
         if ($ids === []) {
             return null;
         }
