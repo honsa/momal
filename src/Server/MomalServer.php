@@ -149,6 +149,22 @@ final class MomalServer implements MessageComponentInterface
             return;
         }
 
+        // Re-join semantics: same connection sends join again.
+        $existing = $this->players[$cid] ?? null;
+        if ($existing !== null) {
+            $oldRoom = $this->rooms[$existing->roomId] ?? null;
+
+            // Switch room if needed.
+            if ($existing->roomId !== $roomId && $oldRoom !== null) {
+                $oldRoom->removePlayer($cid);
+                $this->broadcastRoomSnapshot($oldRoom);
+
+                if ($oldRoom->isEmpty()) {
+                    unset($this->rooms[$oldRoom->id]);
+                }
+            }
+        }
+
         $room = $this->rooms[$roomId] ?? null;
         if ($room === null) {
             $room = new Room($roomId);
@@ -156,6 +172,10 @@ final class MomalServer implements MessageComponentInterface
         }
 
         $player = new Player($cid, $name, $roomId);
+        if ($existing !== null) {
+            $player->score = $existing->score;
+        }
+
         $this->players[$cid] = $player;
         $room->addPlayer($player);
 
@@ -165,7 +185,7 @@ final class MomalServer implements MessageComponentInterface
             'isHost' => $room->hostConnectionId === $cid,
         ]);
 
-        $this->broadcastSystem($room, $name . ' ist beigetreten.');
+        $this->broadcastSystem($room, $existing ? ($name . ' ist wieder da.') : ($name . ' ist beigetreten.'));
         $this->broadcastRoomSnapshot($room);
     }
 
