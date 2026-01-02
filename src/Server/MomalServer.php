@@ -10,6 +10,7 @@ use Momal\Game\Player;
 use Momal\Game\Room;
 use Ratchet\ConnectionInterface;
 use Ratchet\MessageComponentInterface;
+use Ratchet\RFC6455\Messaging\Frame;
 
 final class MomalServer implements MessageComponentInterface
 {
@@ -856,8 +857,14 @@ final class MomalServer implements MessageComponentInterface
             if ($conn === null) {
                 continue;
             }
-            // Ratchet supports sending raw strings; websocket layer decides text/binary.
-            $conn->send($frame);
+
+            // Ensure RFC6455 layer sends as OP_BINARY (otherwise browsers try to UTF-8 decode).
+            if ($conn instanceof \Ratchet\WebSocket\WsConnection) {
+                $conn->send(new Frame($frame, true, Frame::OP_BINARY));
+            } else {
+                // Fallback: best effort
+                $conn->send($frame);
+            }
         }
     }
 }

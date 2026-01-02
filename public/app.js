@@ -32,6 +32,19 @@
   let drawerConnectionId = null;
   let state = 'lobby';
 
+  // Drawing state + sending (must be declared before use)
+  let isDrawing = false;
+  let last = null;
+  let pendingPoints = [];
+  let strokeColor = '#000000';
+  let strokeWidth = 3;
+
+  // Outgoing draw pacing
+  const SEND_INTERVAL_MS = 16;
+  const MAX_POINTS_PER_CHUNK = 160;
+  const MAX_POINT_STEP = 0.004;
+  let sendTimer = null;
+
   // Incoming draw rendering queue (smooth remote rendering)
   // We use a tiny jitter buffer so rendering is stable even if network delivery is bursty.
   const renderQueue = []; // items: {ev: object, dueMs: number}
