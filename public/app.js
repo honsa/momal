@@ -720,9 +720,18 @@
     scheduleFrameFlush();
   }
 
+  function setDrawingCursor(active) {
+    if (active) {
+      document.body.classList.add('is-drawing');
+    } else {
+      document.body.classList.remove('is-drawing');
+    }
+  }
+
   function onPointerDown(e) {
     if (!canDraw()) return;
     isDrawing = true;
+    setDrawingCursor(true);
 
     strokeColor = colorEl.value;
     strokeWidth = Number(widthEl.value);
@@ -738,7 +747,15 @@
   }
 
   function onPointerMove(e) {
-    if (!isDrawing || !last || !canDraw()) return;
+    if (!isDrawing || !last || !canDraw()) {
+      // If permissions changed mid-stroke, ensure cursor resets.
+      if (!canDraw()) {
+        isDrawing = false;
+        last = null;
+        setDrawingCursor(false);
+      }
+      return;
+    }
 
     // Chrome/Edge: coalesced events give us higher frequency samples.
     const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : null;
@@ -793,9 +810,13 @@
   }
 
   function onPointerUp(e) {
-    if (!canDraw()) return;
+    if (!canDraw()) {
+      setDrawingCursor(false);
+      return;
+    }
     isDrawing = false;
     last = null;
+    setDrawingCursor(false);
 
     // Send whatever remains.
     flushStrokeChunk(true);
@@ -947,7 +968,12 @@
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('pointercancel', () => {
+      isDrawing = false;
+      last = null;
+      setDrawingCursor(false);
+      onPointerUp(new Event('pointercancel'));
+    });
   } else {
     canvas.addEventListener('mousedown', onPointerDown);
     canvas.addEventListener('mousemove', onPointerMove);
