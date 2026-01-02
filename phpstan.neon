@@ -1,8 +1,10 @@
 parameters:
-  checkGenericClassInNonGenericObjectType: false
-  checkMissingIterableValueType: false
-  reportUnmatchedIgnoredErrors: true
+  reportUnmatchedIgnoredErrors: false
   tmpDir: var/phpstan
+
+  ignoreErrors:
+    - identifier: missingType.iterableValue
+    - identifier: missingType.generics
 
   paths:
     - src
