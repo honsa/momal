@@ -320,7 +320,13 @@
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${proto}//${location.hostname}:8080`;
+
+    let host = location.hostname;
+    if (!host || host === '0.0.0.0' || host === '::' || host === '[::]') {
+      host = '127.0.0.1';
+    }
+
+    const url = `${proto}//${host}:8080`;
 
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
