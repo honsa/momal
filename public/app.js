@@ -48,6 +48,34 @@
   const renderQueue = [];
   let renderScheduled = false;
 
+  function pumpRenderQueue() {
+    // Render as much as we can within a small time budget to avoid long janks.
+    const started = performance.now();
+    const budgetMs = 6; // keep UI responsive
+
+    while (renderQueue.length > 0 && (performance.now() - started) < budgetMs) {
+      const ev = renderQueue.shift();
+      drawEvent(ev);
+    }
+
+    if (renderQueue.length > 0) {
+      window.requestAnimationFrame(pumpRenderQueue);
+    } else {
+      renderScheduled = false;
+    }
+  }
+
+  function enqueueRender(payload) {
+    // ignore null/undefined payloads
+    if (!payload) return;
+
+    renderQueue.push(payload);
+
+    if (renderScheduled) return;
+    renderScheduled = true;
+    window.requestAnimationFrame(pumpRenderQueue);
+  }
+
   function setStatus(text) {
     statusEl.textContent = text;
   }
