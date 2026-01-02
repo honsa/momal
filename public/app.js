@@ -23,6 +23,8 @@
   const canvas = $('canvas');
   const ctx = canvas.getContext('2d');
 
+  let canvasTransformReady = false;
+
   let ws = null;
   let joined = false;
   let isHost = false;
@@ -301,9 +303,18 @@
       canvas.height = targetH;
     }
 
-    // normalized coordinate space (0..1)
-    ctx.setTransform(canvas.width, 0, 0, canvas.height, 0, 0);
+    // Work in pixel-space. Incoming/outgoing points are normalized (0..1) and
+    // are converted at draw time. This keeps line widths consistent across clients.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     canvasTransformReady = true;
+  }
+
+  function toPxX(x) {
+    return (Number(x) || 0) * canvas.width;
+  }
+
+  function toPxY(y) {
+    return (Number(y) || 0) * canvas.height;
   }
 
   function ensureCanvasReady() {
@@ -314,7 +325,7 @@
 
   function clearCanvasLocal() {
     setupCanvasResolution();
-    ctx.clearRect(0, 0, 1, 1);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   function canDraw() {
@@ -326,34 +337,35 @@
 
     ensureCanvasReady();
 
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = ev.c || '#000';
+    ctx.lineWidth = Math.max(1, Number(ev.w) || 3);
+
     // stroke events (polyline)
     if (ev.t === 'stroke' && Array.isArray(ev.p) && ev.p.length >= 2) {
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = ev.c || '#000';
-      ctx.lineWidth = (Number(ev.w) || 3) / canvas.width;
-
       // Interpolate between points to avoid visible gaps when points are sparse.
-      const maxStep = 0.015; // normalized step (~1.5% of canvas)
+      // max step ~1.5% of canvas size
+      const maxStep = 0.015;
 
       ctx.beginPath();
       let prev = ev.p[0];
-      ctx.moveTo(prev.x, prev.y);
+      ctx.moveTo(toPxX(prev.x), toPxY(prev.y));
 
       for (let i = 1; i < ev.p.length; i++) {
         const cur = ev.p[i];
-        const dx = cur.x - prev.x;
-        const dy = cur.y - prev.y;
+        const dx = (cur.x - prev.x);
+        const dy = (cur.y - prev.y);
         const dist = Math.hypot(dx, dy);
 
         if (dist > maxStep) {
           const steps = Math.ceil(dist / maxStep);
           for (let s = 1; s <= steps; s++) {
             const t = s / steps;
-            ctx.lineTo(prev.x + dx * t, prev.y + dy * t);
+            ctx.lineTo(toPxX(prev.x + dx * t), toPxY(prev.y + dy * t));
           }
         } else {
-          ctx.lineTo(cur.x, cur.y);
+          ctx.lineTo(toPxX(cur.x), toPxY(cur.y));
         }
 
         prev = cur;
@@ -364,15 +376,10 @@
     }
 
     // legacy single line segment
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = ev.c || '#000';
-    ctx.lineWidth = (Number(ev.w) || 3) / canvas.width;
-
     if (ev.t === 'line') {
       ctx.beginPath();
-      ctx.moveTo(ev.x0, ev.y0);
-      ctx.lineTo(ev.x1, ev.y1);
+      ctx.moveTo(toPxX(ev.x0), toPxY(ev.y0));
+      ctx.lineTo(toPxX(ev.x1), toPxY(ev.y1));
       ctx.stroke();
     }
   }
