@@ -10,7 +10,7 @@ Kleines Multiplayer-MVP im Browser: Zeichnen (Canvas), Live-Chat/Antworten, Punk
 ## Setup
 
 ```sh
-cd /home/honsa/PhpstormProjects/momal
+# im Projektordner
 composer install
 ```
 
@@ -19,7 +19,6 @@ composer install
 ### 1) WebSocket-Server (Ratchet)
 
 ```sh
-cd /home/honsa/PhpstormProjects/momal
 php server/ws-server.php
 ```
 
@@ -30,7 +29,6 @@ Der Server lauscht standardmäßig auf `ws://localhost:8080`.
 In einem zweiten Terminal:
 
 ```sh
-cd /home/honsa/PhpstormProjects/momal
 php -S 0.0.0.0:8000 -t public public/index.php
 ```
 
@@ -41,7 +39,6 @@ Dann im Browser öffnen:
 ### Dev-Shortcut (beide Server zusammen)
 
 ```sh
-cd /home/honsa/PhpstormProjects/momal
 ./bin/dev.sh
 ```
 
@@ -127,21 +124,18 @@ sudo apt install -y php php-cli php-mbstring php-xml unzip composer
 ### PHPUnit
 
 ```sh
-cd /home/honsa/PhpstormProjects/momal
 composer test
 ```
 
 ### PHPStan
 
 ```sh
-cd /home/honsa/PhpstormProjects/momal
 composer stan
 ```
 
 ### Beides zusammen
 
 ```sh
-cd /home/honsa/PhpstormProjects/momal
 composer check
 ```
 
