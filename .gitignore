@@ -88,3 +88,9 @@ fabric.properties
 /.phpunit.cache/
 /.phpunit.result.cache
 .php-cs-fixer.cache
+
+# Node (debug tooling only)
+/node_modules/
+/package.json
+/package-lock.json
+/npm-debug.log*
