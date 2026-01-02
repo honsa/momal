@@ -40,10 +40,15 @@ final class MomalServer implements MessageComponentInterface
 
     private const DRAW_RATE_LIMIT_MS = 40;
 
+    /** @var callable(): float */
+    private $clockMs;
+
     public function __construct(
         private readonly Words $words,
-        private readonly HighscoreStore $highscoreStore
+        private readonly HighscoreStore $highscoreStore,
+        ?callable $clockMs = null
     ) {
+        $this->clockMs = $clockMs ?? static fn (): float => microtime(true) * 1000;
     }
 
     public function onOpen(ConnectionInterface $conn): void
@@ -220,7 +225,7 @@ final class MomalServer implements MessageComponentInterface
         $cid = $this->connectionId($from);
 
         // Rate limit (chat + guess share this path).
-        $nowMs = microtime(true) * 1000;
+        $nowMs = ($this->clockMs)();
         $last = $this->lastChatAtMs[$cid] ?? null;
         if ($last !== null && ($nowMs - $last) < self::CHAT_RATE_LIMIT_MS) {
             return;
@@ -360,7 +365,7 @@ final class MomalServer implements MessageComponentInterface
         $cid = $this->connectionId($from);
 
         // Rate limit draw events.
-        $nowMs = microtime(true) * 1000;
+        $nowMs = ($this->clockMs)();
         $last = $this->lastDrawAtMs[$cid] ?? null;
         if ($last !== null && ($nowMs - $last) < self::DRAW_RATE_LIMIT_MS) {
             return;

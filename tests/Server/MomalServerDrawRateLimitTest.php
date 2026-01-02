@@ -13,7 +13,12 @@ final class MomalServerDrawRateLimitTest extends TestCase
 {
     public function testDrawEventsAreRateLimitedPerDrawer(): void
     {
-        $server = new MomalServer(new Words(['WORT']), new HighscoreStore($this->tmpHighscoreFile()));
+        $ms = 0.0;
+        $clock = static function () use (&$ms): float {
+            return $ms;
+        };
+
+        $server = new MomalServer(new Words(['WORT']), new HighscoreStore($this->tmpHighscoreFile()), $clock);
 
         $c1 = new FakeConnection(1);
         $c2 = new FakeConnection(2);
@@ -32,16 +37,16 @@ final class MomalServerDrawRateLimitTest extends TestCase
 
         $payload = ['t' => 'line', 'x0' => 0.1, 'y0' => 0.2, 'x1' => 0.3, 'y1' => 0.4, 'c' => '#000', 'w' => 3];
 
-        // burst draw events
+        // burst draw events - advance time a little, but keep most calls within the 40ms window.
         for ($i = 0; $i < 10; $i++) {
             $server->onMessage($drawer, $this->json(['type' => 'draw:event', 'payload' => $payload]));
+            $ms += $i === 0 ? 0 : 5; // 5ms step => only a few should pass
         }
 
         $drawEvents = $this->countByType($receiver, 'draw:event');
 
-        // Ensure at least one got through, but burst was limited.
-        self::assertGreaterThanOrEqual(1, $drawEvents);
-        self::assertLessThanOrEqual(3, $drawEvents);
+        // With 40ms rate limit and 5ms increments, we expect about 2 events (at t=0 and t=40).
+        self::assertSame(2, $drawEvents);
     }
 
     private function tmpHighscoreFile(): string
