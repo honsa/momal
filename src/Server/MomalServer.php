@@ -906,13 +906,17 @@ final class MomalServer implements MessageComponentInterface
                 continue;
             }
 
-            // Only WsConnection can reliably emit OP_BINARY. If we can't guarantee that,
-            // skip binary broadcast to avoid browsers trying to UTF-8 decode a text frame.
+            // Only WsConnection can reliably emit OP_BINARY.
             if (!$conn instanceof WsConnection) {
                 continue;
             }
 
-            $conn->send((new Frame($frame, true, Frame::OP_BINARY))->getContents());
+            // IMPORTANT:
+            // Pass a Frame object so the RFC6455 layer knows this is OP_BINARY.
+            // Passing raw bytes risks being treated as OP_TEXT and decoded as UTF-8 by browsers.
+            /** @var mixed $binFrame */
+            $binFrame = new Frame($frame, true, Frame::OP_BINARY);
+            $conn->send($binFrame);
         }
     }
 }
