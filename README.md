@@ -52,19 +52,41 @@ Optional:
 
 1. In 2 Browser-Tabs/Fenstern öffnen.
 2. Beide geben den gleichen Room-Code ein (z.B. `ABC123`).
-3. Der Host (erster Spieler im Raum) klickt **„Runde starten“**.
-4. Der Zeichner sieht das Wort und zeichnet. Die anderen raten im Chat.
+3. Beide wählen unterschiedliche Namen (Namen sind pro Raum eindeutig, case-insensitive).
+4. Der Host (erster Spieler im Raum) klickt **„Runde starten“**.
+5. Der Zeichner sieht das Wort und zeichnet. Die anderen raten im Chat.
 
 ## Hinweise
 
-- MVP: Lösung muss aktuell **exakt** stimmen (case-insensitive).
-- Highscore wird in `var/highscore.json` gespeichert.
+- MVP: Antworten müssen aktuell **exakt** stimmen (case-insensitive).
+- Highscore wird **pro Raum** gespeichert in `var/highscore-by-room.json`.
 
 ## Troubleshooting
 
 - Wenn `ws://localhost:8080` nicht geht: Port belegt? Dann `MOMAL_WS_PORT=8090 php server/ws-server.php` und in `public/app.js` den Port anpassen.
 
-### Rate limiting (Spam-Schutz)
+## Security / Hardening
+
+### WebSocket Origin Allowlist (empfohlen)
+
+Wenn du den WS-Server nicht komplett offen betreiben willst, setze eine Allowlist:
+
+- `MOMAL_WS_ALLOWED_ORIGINS` (Comma-separated)
+
+Beispiel:
+
+```sh
+MOMAL_WS_ALLOWED_ORIGINS="http://localhost:8000,http://127.0.0.1:8000" php server/ws-server.php
+```
+
+### WebSocket Payload Limits
+
+Zum Schutz gegen große Nachrichten (DoS):
+
+- `MOMAL_WS_MAX_TEXT_BYTES` (Default: `65536`)
+- `MOMAL_WS_MAX_BINARY_BYTES` (Default: `131072`)
+
+## Rate limiting (Spam-Schutz)
 
 Der Server begrenzt die Frequenz von Chat/Guess und Draw-Events pro Connection.
 
