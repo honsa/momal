@@ -66,6 +66,8 @@ final class MomalServer implements MessageComponentInterface
     private const DRAW_BIN_VERSION = 1;
     private const DRAW_BIN_TYPE_STROKE = 1;
 
+    private bool $debug;
+
     public function __construct(
         private readonly Words $words,
         private readonly HighscoreStore $highscoreStore,
@@ -75,6 +77,8 @@ final class MomalServer implements MessageComponentInterface
 
         $this->chatRateLimitMs = $this->envInt('MOMAL_CHAT_RATE_LIMIT_MS', self::DEFAULT_CHAT_RATE_LIMIT_MS);
         $this->drawRateLimitMs = $this->envInt('MOMAL_DRAW_RATE_LIMIT_MS', self::DEFAULT_DRAW_RATE_LIMIT_MS);
+
+        $this->debug = getenv('MOMAL_DEBUG_WS') === '1';
     }
 
     private function envInt(string $key, int $default): int
@@ -88,6 +92,14 @@ final class MomalServer implements MessageComponentInterface
         return $v >= 0 ? $v : $default;
     }
 
+    private function dbg(string $msg): void
+    {
+        if (!$this->debug) {
+            return;
+        }
+        error_log('[momal] ' . $msg);
+    }
+
     public function onOpen(ConnectionInterface $conn): void
     {
         // If we're behind Ratchet\WebSocket\WsServer, the passed connection is a WsConnection decorator.
@@ -95,6 +107,8 @@ final class MomalServer implements MessageComponentInterface
         // Important: WsConnection::getConnection() is protected, so we must not call it.
         $cid = $this->connectionId($conn);
         $this->connections[$cid] = $conn;
+
+        $this->dbg('open cid=' . $cid . ' class=' . get_class($conn));
 
         $this->send($this->connections[$cid], [
             'type' => 'hello',
@@ -174,6 +188,7 @@ final class MomalServer implements MessageComponentInterface
     public function onClose(ConnectionInterface $conn): void
     {
         $cid = $this->connectionId($conn);
+        $this->dbg('close cid=' . $cid);
 
         $player = $this->players[$cid] ?? null;
         if ($player !== null) {
@@ -211,6 +226,7 @@ final class MomalServer implements MessageComponentInterface
     private function handleJoin(ConnectionInterface $conn, array $data): void
     {
         $cid = $this->connectionId($conn);
+        $this->dbg('join cid=' . $cid . ' room=' . (string)($data['roomId'] ?? '') . ' name=' . (string)($data['name'] ?? ''));
 
         $roomId = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($data['roomId'] ?? '')) ?? '');
         $roomId = substr($roomId, 0, 6);
@@ -414,6 +430,7 @@ final class MomalServer implements MessageComponentInterface
     private function handleDrawEvent(ConnectionInterface $from, array $data): void
     {
         $cid = $this->connectionId($from);
+        $this->dbg('draw(json) from=' . $cid);
 
         // Rate limit draw events.
         $nowMs = ($this->clockMs)();
@@ -656,6 +673,9 @@ final class MomalServer implements MessageComponentInterface
 
     private function broadcast(Room $room, array $message): void
     {
+        if (($message['type'] ?? null) === 'draw:batch') {
+            $this->dbg('broadcast draw:batch to ' . count($room->players) . ' players');
+        }
         foreach ($room->players as $cid => $_p) {
             $conn = $this->connections[$cid] ?? null;
             if ($conn) {
@@ -700,6 +720,8 @@ final class MomalServer implements MessageComponentInterface
 
     private function handleBinary(ConnectionInterface $from, string $frame): void
     {
+        $this->dbg('draw(bin) frameLen=' . strlen($frame));
+
         // Frame layout (all little-endian):
         // 0..3  magic "MOML"
         // 4     version (uint8)
@@ -856,6 +878,8 @@ final class MomalServer implements MessageComponentInterface
 
     private function broadcastBinary(Room $room, string $frame): void
     {
+        $this->dbg('broadcast binary len=' . strlen($frame) . ' to ' . count($room->players) . ' players');
+
         foreach ($room->players as $cid => $_) {
             $conn = $this->connections[(string)$cid] ?? null;
             if ($conn === null) {
