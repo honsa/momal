@@ -56,13 +56,10 @@ final class MomalServer implements MessageComponentInterface
     /** @var array<string, int> roomId => last flush ms */
     private array $drawOutboxLastFlushMs = [];
 
-    private const DRAW_OUTBOX_FLUSH_INTERVAL_MS = 16; // ~60fps
+    // Drawing batching: tune for smoother remote rendering.
+    private const DRAW_OUTBOX_FLUSH_INTERVAL_MS = 8; // was higher; lower => less latency
+    private const DRAW_OUTBOX_MAX_EVENTS_PER_BATCH = 80; // bigger batches under fast strokes
 
-    /**
-     * Max events per draw:batch.
-     * Higher values reduce per-message overhead under fast drawing.
-     */
-    private const DRAW_OUTBOX_MAX_EVENTS_PER_BATCH = 120;
 
     public function __construct(
         private readonly Words $words,
@@ -511,10 +508,12 @@ final class MomalServer implements MessageComponentInterface
 
         $queueSize = count($this->drawOutbox[$roomId]['queued']);
         $effectiveInterval = self::DRAW_OUTBOX_FLUSH_INTERVAL_MS;
-        if ($queueSize > 500) {
-            $effectiveInterval = 4;
+        if ($queueSize > 800) {
+            $effectiveInterval = 0; // flush immediately until we catch up
+        } elseif ($queueSize > 400) {
+            $effectiveInterval = 2;
         } elseif ($queueSize > 200) {
-            $effectiveInterval = 8;
+            $effectiveInterval = 4;
         }
 
         if ($hasFlushedBefore && ($nowMs - $lastFlush) < $effectiveInterval) {
@@ -548,8 +547,8 @@ final class MomalServer implements MessageComponentInterface
             'tsMs' => $nowMs,
         ]);
 
-        // If backlog is still large, allow another immediate flush on next event.
-        if (count($this->drawOutbox[$roomId]['queued']) > 500) {
+        // If backlog remains, allow another immediate flush on the very next draw event.
+        if (count($this->drawOutbox[$roomId]['queued']) > 0) {
             $this->drawOutboxLastFlushMs[$roomId] = $nowMs - $effectiveInterval;
         }
     }
