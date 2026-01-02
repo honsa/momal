@@ -48,10 +48,14 @@
   const renderQueue = [];
   let renderScheduled = false;
 
+  // Track whether canvas transform is up-to-date to avoid resetting it on every draw.
+  let canvasTransformReady = false;
+
   function pumpRenderQueue() {
-    // Render as much as we can within a small time budget to avoid long janks.
     const started = performance.now();
-    const budgetMs = 6; // keep UI responsive
+
+    // Adaptive budget: if we have backlog, spend a bit more per frame to catch up.
+    const budgetMs = renderQueue.length > 100 ? 12 : (renderQueue.length > 20 ? 9 : 6);
 
     while (renderQueue.length > 0 && (performance.now() - started) < budgetMs) {
       const ev = renderQueue.shift();
@@ -234,17 +238,13 @@
 
     // normalized coordinate space (0..1)
     ctx.setTransform(canvas.width, 0, 0, canvas.height, 0, 0);
+    canvasTransformReady = true;
   }
 
-  function normalizeCanvasPoint(e) {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    const x = (clientX - rect.left) / rect.width;
-    const y = (clientY - rect.top) / rect.height;
-
-    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+  function ensureCanvasReady() {
+    if (!canvasTransformReady) {
+      setupCanvasResolution();
+    }
   }
 
   function clearCanvasLocal() {
@@ -259,7 +259,7 @@
   function drawEvent(ev) {
     if (!ev) return;
 
-    setupCanvasResolution();
+    ensureCanvasReady();
 
     // stroke events (polyline)
     if (ev.t === 'stroke' && Array.isArray(ev.p) && ev.p.length >= 2) {
@@ -268,12 +268,32 @@
       ctx.strokeStyle = ev.c || '#000';
       ctx.lineWidth = (Number(ev.w) || 3) / canvas.width;
 
+      // Interpolate between points to avoid visible gaps when points are sparse.
+      const maxStep = 0.015; // normalized step (~1.5% of canvas)
+
       ctx.beginPath();
-      ctx.moveTo(ev.p[0].x, ev.p[0].y);
+      let prev = ev.p[0];
+      ctx.moveTo(prev.x, prev.y);
+
       for (let i = 1; i < ev.p.length; i++) {
-        const pt = ev.p[i];
-        ctx.lineTo(pt.x, pt.y);
+        const cur = ev.p[i];
+        const dx = cur.x - prev.x;
+        const dy = cur.y - prev.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > maxStep) {
+          const steps = Math.ceil(dist / maxStep);
+          for (let s = 1; s <= steps; s++) {
+            const t = s / steps;
+            ctx.lineTo(prev.x + dx * t, prev.y + dy * t);
+          }
+        } else {
+          ctx.lineTo(cur.x, cur.y);
+        }
+
+        prev = cur;
       }
+
       ctx.stroke();
       return;
     }
@@ -433,7 +453,7 @@
   window.addEventListener('touchend', onPointerUp, { passive: false });
 
   window.addEventListener('resize', () => {
-    // Keep canvas crisp and consistent on resize.
+    canvasTransformReady = false;
     setupCanvasResolution();
   });
 
