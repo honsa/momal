@@ -16,7 +16,17 @@
 <script>
   const out = document.getElementById('out');
   const log = (s) => { out.textContent += s + "\n"; };
-  const url = `ws://${location.hostname}:8080`;
+
+  // If opened via file://, location.hostname can be empty -> ws://:8080 is invalid.
+  const hostname = (location.hostname && location.hostname.trim())
+    ? location.hostname
+    : (location.host && location.host.split(':')[0])
+      ? location.host.split(':')[0]
+      : '127.0.0.1';
+
+  const url = `ws://${hostname}:8080`;
+  log('connecting ' + url);
+
   const ws = new WebSocket(url);
   ws.binaryType = 'arraybuffer';
   ws.onopen = () => log('open ' + url);
@@ -39,4 +49,3 @@
 </script>
 </body>
 </html>
-
