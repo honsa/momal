@@ -73,6 +73,15 @@
     return Math.max(a, Math.min(b, n));
   }
 
+  function clampInt(n, a, b) {
+    n = Number.isFinite(n) ? Math.round(n) : a;
+    return Math.max(a, Math.min(b, n));
+  }
+
+  function escapeAttr(s) {
+    return String(s).replace(/[^a-zA-Z0-9#(),.%\s-]/g, '');
+  }
+
   function updateTimeOffset(serverTsMs) {
     if (!Number.isFinite(serverTsMs)) return;
     const localNow = performance.now();
@@ -720,11 +729,62 @@
     scheduleFrameFlush();
   }
 
+  function buildBrushCursorSvg(sizePx, colorHex) {
+    // Cursor images have browser-specific limits; keep this small.
+    const w = 64;
+    const h = 64;
+
+    const r = clampInt(sizePx / 2, 2, 20);
+    const cx = 18;
+    const cy = 44;
+
+    const color = escapeAttr(colorHex || '#000000');
+
+    // High-contrast outline circle + filled center approximating brush size.
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" opacity="0.45"/>
+  <circle cx="${cx}" cy="${cy}" r="${Math.max(1, r - 1)}" fill="none" stroke="#000" stroke-width="2"/>
+  <circle cx="${cx}" cy="${cy}" r="${Math.max(1, r - 2)}" fill="none" stroke="#fff" stroke-width="1" opacity="0.9"/>
+
+  <!-- small brush icon (white fill + black stroke) -->
+  <path d="M28 10l22 22-6 6L22 16z" fill="#ffffff" stroke="#000000" stroke-width="2" />
+  <path d="M14 56c0-6 4-10 9-10 4 0 6 3 6 6 0 7-5 12-12 12-2 0-3-1-3-8z" fill="#ffffff" stroke="#000000" stroke-width="2" />
+</svg>`;
+  }
+
+  function applyDynamicBrushCursor() {
+    // Only set dynamic cursor while we're actively drawing.
+    if (!document.body.classList.contains('is-drawing')) return;
+
+    const w = clampInt(Number(widthEl.value), 1, 40);
+    const c = colorEl.value || '#000000';
+
+    try {
+      const svg = buildBrushCursorSvg(w, c);
+      const encoded = encodeURIComponent(svg)
+        .replace(/%0A/g, '')
+        .replace(/%20/g, ' ');
+
+      // Hotspot at circle center.
+      canvas.style.cursor = `url("data:image/svg+xml,${encoded}") 18 44, crosshair`;
+    } catch (_) {
+      // Fallback to CSS.
+      canvas.style.cursor = '';
+    }
+  }
+
+  function clearDynamicBrushCursor() {
+    canvas.style.cursor = '';
+  }
+
   function setDrawingCursor(active) {
     if (active) {
       document.body.classList.add('is-drawing');
+      applyDynamicBrushCursor();
     } else {
       document.body.classList.remove('is-drawing');
+      clearDynamicBrushCursor();
     }
   }
 
