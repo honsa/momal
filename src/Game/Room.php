@@ -8,6 +8,10 @@ use Momal\Domain\Words;
 
 final class Room
 {
+    public const STATE_LOBBY = 'lobby';
+    public const STATE_IN_ROUND = 'in_round';
+    public const STATE_ROUND_END = 'round_end';
+
     public string $id;
 
     /** @var array<string, Player> connectionId => Player */
@@ -15,7 +19,8 @@ final class Room
 
     public ?string $hostConnectionId = null;
 
-    public string $state = 'lobby'; // lobby|in_round|round_end
+    /** @var self::STATE_* */
+    public string $state = self::STATE_LOBBY;
 
     public ?string $drawerConnectionId = null;
     public ?string $word = null;
@@ -45,13 +50,13 @@ final class Room
     {
         unset($this->players[$connectionId]);
         unset($this->guessed[$connectionId]);
+
         if ($this->hostConnectionId === $connectionId) {
             $this->hostConnectionId = \array_key_first($this->players) ?: null;
         }
+
         if ($this->drawerConnectionId === $connectionId) {
-            $this->drawerConnectionId = null;
-            $this->word = null;
-            $this->state = 'lobby';
+            $this->resetRoundState();
         }
     }
 
@@ -67,7 +72,7 @@ final class Room
         }
 
         $this->roundNumber++;
-        $this->state = 'in_round';
+        $this->state = self::STATE_IN_ROUND;
         $this->guessed = [];
 
         $this->drawerConnectionId = $this->pickNextDrawer();
@@ -78,6 +83,15 @@ final class Room
         if ($this->drawerConnectionId !== null) {
             $this->guessed[$this->drawerConnectionId] = true; // mark as already "guessed" for scoring
         }
+    }
+
+    public function resetRoundState(): void
+    {
+        $this->drawerConnectionId = null;
+        $this->word = null;
+        $this->state = self::STATE_LOBBY;
+        $this->guessed = [];
+        $this->roundStartedAt = 0;
     }
 
     private function pickNextDrawer(): ?string
@@ -105,7 +119,7 @@ final class Room
 
     public function timeLeft(): int
     {
-        if ($this->state !== 'in_round') {
+        if ($this->state !== self::STATE_IN_ROUND) {
             return 0;
         }
         $elapsed = \time() - $this->roundStartedAt;
