@@ -34,10 +34,19 @@
   let isDrawing = false;
   let last = null;
 
-  // Outgoing draw event batching (prevents gaps when server/network throttles)
+  // Outgoing draw event batching
+  // We send stroke chunks (polyline points) instead of many single segments.
   const SEND_INTERVAL_MS = 16; // ~60fps
-  let pendingSegment = null;
+  const MAX_POINTS_PER_CHUNK = 40;
+
+  let strokeColor = '#000000';
+  let strokeWidth = 4;
+  let pendingPoints = []; // [{x,y}, ...]
   let sendTimer = null;
+
+  // Incoming draw rendering queue (smooth remote rendering)
+  const renderQueue = [];
+  let renderScheduled = false;
 
   function setStatus(text) {
     statusEl.textContent = text;
@@ -114,7 +123,11 @@
           secretWordEl.textContent = msg.word;
           break;
         case 'draw:event':
-          drawEvent(msg.payload);
+        case 'draw:stroke':
+          // Queue for smooth render
+          if (msg.payload) {
+            enqueueRender(msg.payload);
+          }
           break;
         case 'round:clear':
           clearCanvasLocal();
@@ -165,157 +178,53 @@
     ws.send(JSON.stringify({ type, ...payload }));
   }
 
-  function flushPendingSegment() {
-    if (!pendingSegment || !ws || ws.readyState !== WebSocket.OPEN) return;
-    send('draw:event', { payload: pendingSegment });
-    pendingSegment = null;
+  function flushStrokeChunk() {
+    if (!canDraw()) return;
+    if (!pendingPoints || pendingPoints.length < 2) {
+      pendingPoints = [];
+      return;
+    }
+
+    // send only normalized points, color, width
+    send('draw:stroke', {
+      payload: {
+        t: 'stroke',
+        p: pendingPoints,
+        c: strokeColor,
+        w: strokeWidth
+      }
+    });
+
+    pendingPoints = [];
   }
 
-  function scheduleFlush() {
+  function scheduleStrokeFlush() {
     if (sendTimer !== null) return;
     sendTimer = window.setTimeout(() => {
       sendTimer = null;
-      flushPendingSegment();
+      flushStrokeChunk();
     }, SEND_INTERVAL_MS);
   }
 
-  function setupCanvasResolution() {
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
+  function enqueueRender(payload) {
+    renderQueue.push(payload);
+    if (renderScheduled) return;
+    renderScheduled = true;
 
-    const displayW = Math.max(1, Math.round(rect.width));
-    const displayH = Math.max(1, Math.round(rect.height));
+    window.requestAnimationFrame(() => {
+      renderScheduled = false;
 
-    const targetW = Math.round(displayW * dpr);
-    const targetH = Math.round(displayH * dpr);
+      // render a bounded amount per frame to keep UI responsive
+      const maxPerFrame = 12;
+      for (let i = 0; i < maxPerFrame && renderQueue.length > 0; i++) {
+        const ev = renderQueue.shift();
+        drawEvent(ev);
+      }
 
-    if (canvas.width !== targetW || canvas.height !== targetH) {
-      canvas.width = targetW;
-      canvas.height = targetH;
-    }
-
-    // Reset transform so drawEvent can work in normalized space.
-    ctx.setTransform(canvas.width, 0, 0, canvas.height, 0, 0);
-  }
-
-  function normalizeCanvasPoint(e) {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    const x = (clientX - rect.left) / rect.width;
-    const y = (clientY - rect.top) / rect.height;
-
-    return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
-  }
-
-  function clearCanvasLocal() {
-    // Keep resolution in sync before clearing.
-    setupCanvasResolution();
-    // With normalized transform, clear full canvas space.
-    ctx.clearRect(0, 0, 1, 1);
-  }
-
-  function drawEvent(ev) {
-    if (!ev) return;
-
-    // Ensure resolution matches current layout before drawing.
-    setupCanvasResolution();
-
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = ev.c || '#000';
-    ctx.lineWidth = (ev.w || 3) / canvas.width; // normalize to canvas width
-
-    if (ev.t === 'line') {
-      ctx.beginPath();
-      ctx.moveTo(ev.x0, ev.y0);
-      ctx.lineTo(ev.x1, ev.y1);
-      ctx.stroke();
-    }
-  }
-
-  function canvasPos(e) {
-    return normalizeCanvasPoint(e);
-  }
-
-  function canDraw() {
-    return joined && state === 'in_round' && drawerConnectionId === myConnectionId;
-  }
-
-  function onPointerDown(e) {
-    if (!canDraw()) return;
-    isDrawing = true;
-    last = canvasPos(e);
-    e.preventDefault();
-  }
-
-  function onPointerMove(e) {
-    if (!isDrawing || !last || !canDraw()) return;
-    const cur = canvasPos(e);
-
-    const segment = {
-      t: 'line',
-      x0: last.x, y0: last.y,
-      x1: cur.x, y1: cur.y,
-      c: colorEl.value,
-      w: Number(widthEl.value)
-    };
-
-    // draw locally immediately
-    drawEvent(segment);
-
-    // coalesce: keep oldest start and newest end within this frame
-    if (!pendingSegment) {
-      pendingSegment = segment;
-    } else {
-      pendingSegment.x1 = segment.x1;
-      pendingSegment.y1 = segment.y1;
-      pendingSegment.c = segment.c;
-      pendingSegment.w = segment.w;
-    }
-
-    scheduleFlush();
-
-    last = cur;
-    e.preventDefault();
-  }
-
-  function onPointerUp(e) {
-    if (!canDraw()) return;
-    isDrawing = false;
-    last = null;
-
-    // make sure we don't lose the last segment
-    flushPendingSegment();
-
-    e.preventDefault();
-  }
-
-  function refreshHighscore() {
-    fetch('/api/highscore.php?limit=20')
-      .then(r => r.json())
-      .then(data => {
-        highscoreEl.innerHTML = '';
-        (data.top || []).forEach(el => {
-          const li = document.createElement('li');
-          const d = new Date((el.updatedAt || 0) * 1000).toLocaleDateString();
-          li.textContent = `${el.name} — ${el.points} (${d})`;
-          highscoreEl.appendChild(li);
-        });
-      })
-      .catch(() => {});
-  }
-
-  function showToast(message, timeoutMs = 4000) {
-    if (!toastEl) return;
-    toastEl.textContent = message;
-    toastEl.hidden = false;
-
-    window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => {
-      toastEl.hidden = true;
-    }, timeoutMs);
+      if (renderQueue.length > 0) {
+        enqueueRender(null); // re-schedule
+      }
+    });
   }
 
   // UI

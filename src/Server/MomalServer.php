@@ -102,6 +102,7 @@ final class MomalServer implements MessageComponentInterface
                 $this->handleRoundStart($from);
                 break;
             case 'draw:event':
+            case 'draw:stroke':
                 $this->handleDrawEvent($from, $data);
                 break;
             case 'round:clear':
@@ -406,7 +407,42 @@ final class MomalServer implements MessageComponentInterface
             return;
         }
 
-        // Minimal validation
+        $t = (string)($payload['t'] ?? '');
+
+        // New: batched stroke
+        if ($t === 'stroke') {
+            $points = $payload['p'] ?? null;
+            if (!is_array($points) || count($points) < 2) {
+                return;
+            }
+
+            $normPoints = [];
+            foreach ($points as $pt) {
+                if (!is_array($pt)) {
+                    return;
+                }
+                $normPoints[] = [
+                    'x' => (float)($pt['x'] ?? 0),
+                    'y' => (float)($pt['y'] ?? 0),
+                ];
+            }
+
+            $event = [
+                't' => 'stroke',
+                'p' => $normPoints,
+                'c' => (string)($payload['c'] ?? '#000000'),
+                'w' => (float)($payload['w'] ?? 3),
+            ];
+
+            $this->broadcast($room, [
+                'type' => 'draw:stroke',
+                'payload' => $event,
+            ]);
+
+            return;
+        }
+
+        // Legacy: single line segment
         $event = [
             't' => (string)($payload['t'] ?? ''),
             'x0' => (float)($payload['x0'] ?? 0),
