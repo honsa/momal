@@ -90,7 +90,7 @@ final class MomalServerTest extends TestCase
 
     public function testDrawEventOnlyBroadcastsFromDrawerDuringRound(): void
     {
-        $server = new MomalServer(new Words(['WORT']), new HighscoreStore($this->tmpHighscoreFile()));
+        $server = new MomalServer(new Words(['WORT']), new HighscoreStore($this->tmpHighscoreFile()), static fn (): float => 1000.0);
 
         $c1 = new FakeConnection(1);
         $c2 = new FakeConnection(2);
@@ -102,6 +102,7 @@ final class MomalServerTest extends TestCase
         $server->onMessage($c1, $this->json(['type' => 'round:start']));
 
         $started = $this->findJsonByType($c1, 'round:started');
+        self::assertNotNull($started);
         $drawerId = (string)($started['drawerConnectionId'] ?? '');
         $drawer = $drawerId === '1' ? $c1 : $c2;
         $guesser = $drawerId === '1' ? $c2 : $c1;
@@ -110,12 +111,12 @@ final class MomalServerTest extends TestCase
 
         // Guesser tries to draw -> ignored (no broadcast)
         $server->onMessage($guesser, $this->json(['type' => 'draw:event', 'payload' => $payload]));
-        self::assertNull($this->findJsonByType($guesser, 'draw:event'));
+        self::assertNull($this->findJsonByType($guesser, 'draw:batch'));
 
-        // Drawer draws -> broadcast to both
+        // Drawer draws -> broadcast (as draw:batch)
         $server->onMessage($drawer, $this->json(['type' => 'draw:event', 'payload' => $payload]));
-        self::assertNotNull($this->findJsonByType($c1, 'draw:event'));
-        self::assertNotNull($this->findJsonByType($c2, 'draw:event'));
+        self::assertNotNull($this->findJsonByType($c1, 'draw:batch'));
+        self::assertNotNull($this->findJsonByType($c2, 'draw:batch'));
     }
 
     private function tmpHighscoreFile(): string

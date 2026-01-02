@@ -45,6 +45,19 @@ final class MomalServer implements MessageComponentInterface
     /** @var callable(): float */
     private $clockMs;
 
+    /**
+     * Draw v2: coalesce many stroke chunks into small batches per room.
+     * This reduces per-message overhead and helps with latency/jank when drawing fast.
+     *
+     * @var array<string, array{nextSeq:int, queued:list<array<string,mixed>>}> roomId => state
+     */
+    private array $drawOutbox = [];
+
+    /** @var array<string, int> roomId => last flush ms */
+    private array $drawOutboxLastFlushMs = [];
+
+    private const DRAW_OUTBOX_FLUSH_INTERVAL_MS = 16; // ~60fps
+
     public function __construct(
         private readonly Words $words,
         private readonly HighscoreStore $highscoreStore,
@@ -159,6 +172,8 @@ final class MomalServer implements MessageComponentInterface
 
                 if ($room->isEmpty()) {
                     unset($this->rooms[$room->id]);
+                    unset($this->drawOutbox[$room->id]);
+                    unset($this->drawOutboxLastFlushMs[$room->id]);
                 }
             }
             unset($this->players[$cid]);
@@ -409,7 +424,7 @@ final class MomalServer implements MessageComponentInterface
 
         $t = (string)($payload['t'] ?? '');
 
-        // New: batched stroke
+        // New: batched stroke (polyline)
         if ($t === 'stroke') {
             $points = $payload['p'] ?? null;
             if (!is_array($points) || count($points) < 2) {
@@ -434,10 +449,11 @@ final class MomalServer implements MessageComponentInterface
                 'w' => (float)($payload['w'] ?? 3),
             ];
 
-            $this->broadcast($room, [
-                'type' => 'draw:stroke',
-                'payload' => $event,
-            ]);
+            // v2: queue + coalesce into draw:batch
+            $this->queueDrawEvent($room, $event);
+
+            // also flush opportunistically if enough time elapsed
+            $this->flushDrawOutbox($room);
 
             return;
         }
@@ -453,9 +469,67 @@ final class MomalServer implements MessageComponentInterface
             'w' => (float)($payload['w'] ?? 3),
         ];
 
+        $this->queueDrawEvent($room, $event);
+        $this->flushDrawOutbox($room);
+    }
+
+    /** @param array<string,mixed> $event */
+    private function queueDrawEvent(Room $room, array $event): void
+    {
+        $roomId = $room->id;
+        if (!isset($this->drawOutbox[$roomId])) {
+            $this->drawOutbox[$roomId] = ['nextSeq' => 1, 'queued' => []];
+        }
+
+        // prevent unbounded growth under slow clients: cap queue (drop oldest)
+        $queued = &$this->drawOutbox[$roomId]['queued'];
+        $queued[] = $event;
+        if (count($queued) > 2000) {
+            $queued = array_slice($queued, -1200);
+        }
+    }
+
+    private function flushDrawOutbox(Room $room): void
+    {
+        $roomId = $room->id;
+        if (!isset($this->drawOutbox[$roomId]) || $this->drawOutbox[$roomId]['queued'] === []) {
+            return;
+        }
+
+        $nowMs = (int)round(($this->clockMs)());
+
+        // First flush should be immediate; subsequent flushes follow the interval.
+        $hasFlushedBefore = array_key_exists($roomId, $this->drawOutboxLastFlushMs);
+        $lastFlush = $this->drawOutboxLastFlushMs[$roomId] ?? 0;
+        if ($hasFlushedBefore && ($nowMs - $lastFlush) < self::DRAW_OUTBOX_FLUSH_INTERVAL_MS) {
+            return;
+        }
+        $this->drawOutboxLastFlushMs[$roomId] = $nowMs;
+
+        // Build one batch per flush. Keep it reasonably sized.
+        $maxEvents = 25;
+        $events = [];
+        for ($i = 0; $i < $maxEvents; $i++) {
+            if ($this->drawOutbox[$roomId]['queued'] === []) {
+                break;
+            }
+            /** @var array<string,mixed> $ev */
+            $ev = array_shift($this->drawOutbox[$roomId]['queued']);
+            $events[] = $ev;
+        }
+
+        if ($events === []) {
+            return;
+        }
+
+        $seq = $this->drawOutbox[$roomId]['nextSeq'];
+        $this->drawOutbox[$roomId]['nextSeq'] = $seq + 1;
+
         $this->broadcast($room, [
-            'type' => 'draw:event',
-            'payload' => $event,
+            'type' => 'draw:batch',
+            'seq' => $seq,
+            'events' => $events,
+            'tsMs' => $nowMs,
         ]);
     }
 
@@ -475,6 +549,8 @@ final class MomalServer implements MessageComponentInterface
         }
 
         $this->broadcast($room, ['type' => 'round:clear']);
+        unset($this->drawOutbox[$room->id]);
+        unset($this->drawOutboxLastFlushMs[$room->id]);
     }
 
     private function endRound(Room $room, string $reason): void
@@ -499,6 +575,8 @@ final class MomalServer implements MessageComponentInterface
 
         // Back to lobby state automatically, keep scores
         $room->resetRoundState();
+        unset($this->drawOutbox[$room->id]);
+        unset($this->drawOutboxLastFlushMs[$room->id]);
 
         $this->broadcastRoomSnapshot($room);
     }

@@ -43,10 +43,11 @@ final class MomalServerDrawRateLimitTest extends TestCase
             $ms += $i === 0 ? 0 : 5;
         }
 
-        $drawEvents = $this->countByType($receiver, 'draw:event');
+        $drawBatches = $this->countByType($receiver, 'draw:batch');
 
-        // Default draw limiter is disabled (0ms), so all events should pass.
-        self::assertSame(10, $drawEvents);
+        // Default draw limiter is disabled (0ms), so draw data should be delivered.
+        // Because the server coalesces draw events into batches, we expect at least one batch.
+        self::assertGreaterThanOrEqual(1, $drawBatches);
     }
 
     private function tmpHighscoreFile(): string

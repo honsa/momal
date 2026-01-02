@@ -48,8 +48,46 @@
   const renderQueue = [];
   let renderScheduled = false;
 
-  // Track whether canvas transform is up-to-date to avoid resetting it on every draw.
-  let canvasTransformReady = false;
+  // draw v2 sequencing (optional)
+  let expectedDrawSeq = null; // number|null
+  const pendingBatches = new Map(); // seq -> [events]
+  let gapTimer = null;
+
+  function scheduleGapCheck() {
+    if (gapTimer !== null) return;
+    gapTimer = window.setTimeout(() => {
+      gapTimer = null;
+      // If we still have a gap after a short wait, just render what we have.
+      // This avoids long stalls on packet loss.
+      drainPendingBatches(true);
+    }, 120);
+  }
+
+  function drainPendingBatches(force = false) {
+    if (expectedDrawSeq === null) return;
+
+    while (pendingBatches.has(expectedDrawSeq)) {
+      const batch = pendingBatches.get(expectedDrawSeq);
+      pendingBatches.delete(expectedDrawSeq);
+      if (Array.isArray(batch)) {
+        batch.forEach((ev) => enqueueRender(ev));
+      }
+      expectedDrawSeq += 1;
+      force = false;
+    }
+
+    if (force && pendingBatches.size > 0) {
+      // render lowest seq we have to avoid visible freezing
+      const keys = Array.from(pendingBatches.keys()).sort((a, b) => a - b);
+      const k = keys[0];
+      const batch = pendingBatches.get(k);
+      pendingBatches.delete(k);
+      if (typeof k === 'number') expectedDrawSeq = k + 1;
+      if (Array.isArray(batch)) batch.forEach((ev) => enqueueRender(ev));
+      // try draining following seqs
+      drainPendingBatches(false);
+    }
+  }
 
   function pumpRenderQueue() {
     const started = performance.now();
@@ -154,21 +192,48 @@
         case 'round:word':
           secretWordEl.textContent = msg.word;
           break;
+        case 'draw:batch': {
+          const seq = Number(msg.seq);
+          const events = Array.isArray(msg.events) ? msg.events : [];
+
+          if (!Number.isFinite(seq) || events.length === 0) {
+            break;
+          }
+
+          if (expectedDrawSeq === null) {
+            expectedDrawSeq = seq;
+          }
+
+          // If we're behind, buffer and try to drain in-order.
+          pendingBatches.set(seq, events);
+
+          if (seq !== expectedDrawSeq) {
+            scheduleGapCheck();
+          }
+
+          drainPendingBatches(false);
+          break;
+        }
         case 'draw:event':
         case 'draw:stroke':
-          // Queue for smooth render
+          // Legacy: queue for smooth render
           if (msg.payload) {
             enqueueRender(msg.payload);
           }
           break;
         case 'round:clear':
           clearCanvasLocal();
+          // reset draw v2 state so next batch can restart cleanly
+          expectedDrawSeq = null;
+          pendingBatches.clear();
           break;
         case 'round:ended':
           addChatLine('System', `${msg.reason} Wort war: ${msg.word}`, Math.floor(Date.now()/1000));
           drawerConnectionId = null;
           secretWordEl.textContent = '—';
           btnClear.disabled = true;
+          expectedDrawSeq = null;
+          pendingBatches.clear();
           break;
       }
     };
