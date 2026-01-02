@@ -17,10 +17,12 @@ use React\Socket\SocketServer;
 $host = getenv('MOMAL_WS_HOST') ?: '0.0.0.0';
 $port = (int)(getenv('MOMAL_WS_PORT') ?: 8080);
 
-$highscore = new HighscoreStore(__DIR__ . '/../var/highscore.json');
 $words = new Words();
 
-$app = new MomalServer($words, $highscore);
+// Legacy dependency for backwards-compat only; per-room highscores use RoomHighscoreStore internally.
+$legacyHighscore = new HighscoreStore(__DIR__ . '/../var/highscore-legacy.json');
+
+$app = new MomalServer($words, $legacyHighscore);
 
 $allowedOrigins = SecurityConfig::allowedWsOrigins();
 
