@@ -354,6 +354,12 @@
         // Keep time model in sync.
         if (Number.isFinite(decoded.tsMs)) updateTimeOffset(Number(decoded.tsMs));
 
+        // Debug: show at least once that binary draw arrives
+        if (!connect._sawBin) {
+          connect._sawBin = true;
+          showToast('Draw: bin OK');
+        }
+
         // Render immediately via smooth queue.
         enqueueRender(decoded.payload, { tsMs: decoded.tsMs });
         return;
@@ -386,6 +392,13 @@
             drawerConnectionId = msg.drawerConnectionId;
             secretWordEl.textContent = '—';
             clearCanvasLocal();
+
+            // Ensure canvas is ready on receivers too (layout can lag on newly opened tabs)
+            window.requestAnimationFrame(() => {
+              canvasTransformReady = false;
+              setupCanvasResolution();
+            });
+
             hintEl.textContent = (drawerConnectionId === myConnectionId)
               ? 'Du bist Zeichner. Zeichne das Wort (oben erscheint es gleich).'
               : 'Rate im Chat!';
@@ -393,36 +406,31 @@
           case 'round:word':
             secretWordEl.textContent = msg.word;
             break;
-          case 'draw:batch': {
-            const seq = Number(msg.seq);
-            const events = Array.isArray(msg.events) ? msg.events : [];
-
-            if (!Number.isFinite(seq) || events.length === 0) {
+          case 'draw:batch':
+            if (!connect._sawBatch) {
+              connect._sawBatch = true;
+              showToast('Draw: batch OK');
+            }
+            {
+              const seq = Number(msg.seq);
+              const events = Array.isArray(msg.events) ? msg.events : [];
+              if (!Number.isFinite(seq) || events.length === 0) {
+                break;
+              }
+              if (Number.isFinite(msg.tsMs)) {
+                updateTimeOffset(Number(msg.tsMs));
+              }
+              if (expectedDrawSeq === null) {
+                expectedDrawSeq = seq;
+              }
+              pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
+              if (seq !== expectedDrawSeq) {
+                scheduleGapCheck();
+                drainPendingBatchesWithinWindow();
+              }
+              drainPendingBatches(false);
               break;
             }
-
-            if (Number.isFinite(msg.tsMs)) {
-              updateTimeOffset(Number(msg.tsMs));
-            }
-
-            // establish expected sequence on first batch
-            if (expectedDrawSeq === null) {
-              expectedDrawSeq = seq;
-            }
-
-            // buffer and try to drain in-order
-            pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
-
-            // Small improvement: if we are missing something, don't freeze.
-            // Allow drawing slightly out-of-order (within a small window) to keep strokes continuous.
-            if (seq !== expectedDrawSeq) {
-              scheduleGapCheck();
-              drainPendingBatchesWithinWindow();
-            }
-
-            drainPendingBatches(false);
-            break;
-          }
           case 'draw:event':
           case 'draw:stroke':
             // Legacy: queue for smooth render

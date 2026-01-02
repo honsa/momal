@@ -29,19 +29,41 @@
 
   const ws = new WebSocket(url);
   ws.binaryType = 'arraybuffer';
-  ws.onopen = () => log('open ' + url);
+
+  const send = (obj) => ws.send(JSON.stringify(obj));
+
+  ws.onopen = () => {
+    log('open ' + url);
+    // auto-join a room so we can observe draw broadcasts
+    send({ type: 'join', name: 'Smoke', roomId: 'ABC123' });
+    log('sent join ABC123');
+  };
+
   ws.onclose = (e) => log('close code=' + e.code + ' reason=' + e.reason);
   ws.onerror = () => log('error');
+
   ws.onmessage = (ev) => {
     if (ev.data instanceof ArrayBuffer) {
       const bytes = new Uint8Array(ev.data);
-      const prefix = String.fromCharCode(bytes[0],bytes[1],bytes[2],bytes[3]);
+      const prefix = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
       log('binary len=' + ev.data.byteLength + ' prefix=' + prefix);
       return;
     }
+
     try {
       const msg = JSON.parse(ev.data);
       log('json type=' + msg.type);
+
+      if (msg.type === 'joined') {
+        // ask to start round; server will ignore if not host, but that's fine.
+        send({ type: 'round:start' });
+        log('sent round:start');
+      }
+
+      if (msg.type === 'draw:batch') {
+        const n = Array.isArray(msg.events) ? msg.events.length : 0;
+        log('draw:batch seq=' + msg.seq + ' events=' + n);
+      }
     } catch {
       log('text len=' + String(ev.data).length);
     }
