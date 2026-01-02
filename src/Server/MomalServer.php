@@ -24,6 +24,14 @@ final class MomalServer implements MessageComponentInterface
 
     private int $lastTickAt = 0;
 
+    /**
+     * Simple per-connection rate limiting for chat/guess.
+     * @var array<string, float>
+     */
+    private array $lastChatAtMs = [];
+
+    private const CHAT_RATE_LIMIT_MS = 400;
+
     public function __construct(
         private readonly Words $words,
         private readonly HighscoreStore $highscoreStore
@@ -127,6 +135,7 @@ final class MomalServer implements MessageComponentInterface
         }
 
         unset($this->connections[$cid]);
+        unset($this->lastChatAtMs[$cid]);
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e): void
@@ -200,6 +209,15 @@ final class MomalServer implements MessageComponentInterface
     private function handleChat(ConnectionInterface $from, array $data): void
     {
         $cid = $this->connectionId($from);
+
+        // Rate limit (chat + guess share this path).
+        $nowMs = microtime(true) * 1000;
+        $last = $this->lastChatAtMs[$cid] ?? null;
+        if ($last !== null && ($nowMs - $last) < self::CHAT_RATE_LIMIT_MS) {
+            return;
+        }
+        $this->lastChatAtMs[$cid] = $nowMs;
+
         $player = $this->players[$cid] ?? null;
         if (!$player) {
             return;
