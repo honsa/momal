@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Momal\Server;
 
 use Momal\Domain\HighscoreStore;
+use Momal\Domain\RoomHighscoreStore;
 use Momal\Domain\Words;
 use Momal\Game\Player;
 use Momal\Game\Room;
@@ -69,9 +70,11 @@ final class MomalServer implements MessageComponentInterface
 
     private bool $debug;
 
+    private RoomHighscoreStore $roomHighscoreStore;
+
     public function __construct(
         private readonly Words $words,
-        private readonly HighscoreStore $highscoreStore,
+        HighscoreStore $highscoreStore,
         ?callable $clockMs = null
     ) {
         $this->clockMs = $clockMs ?? static fn (): float => microtime(true) * 1000;
@@ -80,7 +83,14 @@ final class MomalServer implements MessageComponentInterface
         $this->drawRateLimitMs = $this->envInt('MOMAL_DRAW_RATE_LIMIT_MS', self::DEFAULT_DRAW_RATE_LIMIT_MS);
 
         $this->debug = getenv('MOMAL_DEBUG_WS') === '1';
+
+        // Keep legacy dependency for BC (may be used by older code / wiring).
+        $this->highscoreStore = $highscoreStore;
+        $this->roomHighscoreStore = new RoomHighscoreStore(__DIR__ . '/../../var/highscore-by-room.json');
     }
+
+    /** @phpstan-ignore-next-line keep for BC */
+    private HighscoreStore $highscoreStore;
 
     private function envInt(string $key, int $default): int
     {
@@ -633,9 +643,9 @@ final class MomalServer implements MessageComponentInterface
         }
         $room->state = Room::STATE_ROUND_END;
 
-        // bump highscores
+        // bump highscores (per room)
         foreach ($room->players as $p) {
-            $this->highscoreStore->bump($p->name, $p->score);
+            $this->roomHighscoreStore->bump($room->id, $p->name, $p->score);
         }
 
         $this->broadcast($room, [

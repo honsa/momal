@@ -803,7 +803,15 @@
   }
 
   function refreshHighscore() {
-    fetch('/api/highscore.php?limit=20')
+    const roomId = (roomEl && roomEl.value ? roomEl.value.trim().toUpperCase() : '');
+
+    if (!roomId) {
+      highscoreEl.innerHTML = '';
+      if (highscoreTopEl) highscoreTopEl.textContent = '—';
+      return;
+    }
+
+    fetch(`/api/highscore.php?limit=20&roomId=${encodeURIComponent(roomId)}`)
       .then(r => r.json())
       .then((data) => {
         highscoreEl.innerHTML = '';
@@ -813,7 +821,8 @@
         if (highscoreTopEl) {
           if (top.length > 0) {
             const first = top[0];
-            highscoreTopEl.textContent = `${first.name} — ${first.points}`;
+            const time = first.updatedAt ? new Date(first.updatedAt * 1000).toLocaleString() : '';
+            highscoreTopEl.textContent = `${first.name} — ${first.points}${time ? ' · ' + time : ''}`;
           } else {
             highscoreTopEl.textContent = '—';
           }
@@ -821,7 +830,7 @@
 
         top.forEach(el => {
           const li = document.createElement('li');
-          const d = new Date((el.updatedAt || 0) * 1000).toLocaleDateString();
+          const d = new Date((el.updatedAt || 0) * 1000).toLocaleString();
           li.textContent = `${el.name} — ${el.points} (${d})`;
           highscoreEl.appendChild(li);
         });
