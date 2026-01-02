@@ -144,3 +144,9 @@ composer stan
 cd /home/honsa/PhpstormProjects/momal
 composer check
 ```
+
+## Lizenz
+
+Dieses Projekt steht unter der **MIT License** (siehe `LICENSE`).
+
+Drittanbieter-Abhängigkeiten werden per Composer eingebunden; Details siehe `THIRD_PARTY_NOTICES.md`.
