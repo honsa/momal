@@ -58,6 +58,12 @@ final class MomalServer implements MessageComponentInterface
 
     private const DRAW_OUTBOX_FLUSH_INTERVAL_MS = 16; // ~60fps
 
+    /**
+     * Max events per draw:batch.
+     * Higher values reduce per-message overhead under fast drawing.
+     */
+    private const DRAW_OUTBOX_MAX_EVENTS_PER_BATCH = 120;
+
     public function __construct(
         private readonly Words $words,
         private readonly HighscoreStore $highscoreStore,
@@ -499,15 +505,25 @@ final class MomalServer implements MessageComponentInterface
         $nowMs = (int)round(($this->clockMs)());
 
         // First flush should be immediate; subsequent flushes follow the interval.
+        // If we are heavily backlogged, flush more aggressively to catch up.
         $hasFlushedBefore = array_key_exists($roomId, $this->drawOutboxLastFlushMs);
         $lastFlush = $this->drawOutboxLastFlushMs[$roomId] ?? 0;
-        if ($hasFlushedBefore && ($nowMs - $lastFlush) < self::DRAW_OUTBOX_FLUSH_INTERVAL_MS) {
+
+        $queueSize = count($this->drawOutbox[$roomId]['queued']);
+        $effectiveInterval = self::DRAW_OUTBOX_FLUSH_INTERVAL_MS;
+        if ($queueSize > 500) {
+            $effectiveInterval = 4;
+        } elseif ($queueSize > 200) {
+            $effectiveInterval = 8;
+        }
+
+        if ($hasFlushedBefore && ($nowMs - $lastFlush) < $effectiveInterval) {
             return;
         }
         $this->drawOutboxLastFlushMs[$roomId] = $nowMs;
 
-        // Build one batch per flush. Keep it reasonably sized.
-        $maxEvents = 25;
+        // Build one batch per flush.
+        $maxEvents = self::DRAW_OUTBOX_MAX_EVENTS_PER_BATCH;
         $events = [];
         for ($i = 0; $i < $maxEvents; $i++) {
             if ($this->drawOutbox[$roomId]['queued'] === []) {
@@ -531,6 +547,11 @@ final class MomalServer implements MessageComponentInterface
             'events' => $events,
             'tsMs' => $nowMs,
         ]);
+
+        // If backlog is still large, allow another immediate flush on next event.
+        if (count($this->drawOutbox[$roomId]['queued']) > 500) {
+            $this->drawOutboxLastFlushMs[$roomId] = $nowMs - $effectiveInterval;
+        }
     }
 
     private function handleClear(ConnectionInterface $from): void
