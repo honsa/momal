@@ -15,6 +15,9 @@ final class FakeConnection implements ConnectionInterface
     /** @var list<string> */
     public array $sent = [];
 
+    /** @var list<string> */
+    public array $sentBinary = [];
+
     public function __construct(
         public int $resourceId,
     ) {
@@ -22,7 +25,15 @@ final class FakeConnection implements ConnectionInterface
 
     public function send($data)
     {
-        $this->sent[] = (string)$data;
+        $s = (string)$data;
+
+        // Heuristic: binary draw frames start with "MOML".
+        // Store separately so JSON helpers don't choke.
+        if (str_starts_with($s, 'MOML')) {
+            $this->sentBinary[] = $s;
+        } else {
+            $this->sent[] = $s;
+        }
 
         return $this;
     }

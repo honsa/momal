@@ -60,6 +60,10 @@ final class MomalServer implements MessageComponentInterface
     private const DRAW_OUTBOX_FLUSH_INTERVAL_MS = 8; // was higher; lower => less latency
     private const DRAW_OUTBOX_MAX_EVENTS_PER_BATCH = 80; // bigger batches under fast strokes
 
+    private const DRAW_BIN_MAGIC = 'MOML';
+    private const DRAW_BIN_VERSION = 1;
+    private const DRAW_BIN_TYPE_STROKE = 1;
+
     public function __construct(
         private readonly Words $words,
         private readonly HighscoreStore $highscoreStore,
@@ -96,6 +100,14 @@ final class MomalServer implements MessageComponentInterface
     public function onMessage(ConnectionInterface $from, $msg): void
     {
         $cid = $this->connectionId($from);
+
+        // Max performance: accept binary draw frames.
+        if (is_string($msg) && str_starts_with($msg, self::DRAW_BIN_MAGIC)) {
+            $this->handleBinary($from, $msg);
+
+            return;
+        }
+
         $data = \json_decode((string)$msg, true);
         if (!\is_array($data) || !isset($data['type'])) {
             return;
@@ -679,5 +691,173 @@ final class MomalServer implements MessageComponentInterface
         }
 
         $conn->send($json);
+    }
+
+    private function handleBinary(ConnectionInterface $from, string $frame): void
+    {
+        // Frame layout (all little-endian):
+        // 0..3  magic "MOML"
+        // 4     version (uint8)
+        // 5     type (uint8)
+        // 6..9  seq (uint32)
+        // 10..13 tsMs (uint32)
+        // 14..15 colorR,colorG (uint8)
+        // 16..17 colorB,reserved (uint8)
+        // 18..19 width (uint16, 1/10 px)
+        // 20..21 pointCount (uint16)
+        // 22..(22+pointCount*8-1) points float32 x,y normalized
+
+        if (strlen($frame) < 22) {
+            return;
+        }
+
+        $version = ord($frame[4]);
+        if ($version !== self::DRAW_BIN_VERSION) {
+            return;
+        }
+
+        $type = ord($frame[5]);
+        if ($type !== self::DRAW_BIN_TYPE_STROKE) {
+            return;
+        }
+
+        $seq = unpack('V', substr($frame, 6, 4));
+        $ts = unpack('V', substr($frame, 10, 4));
+        $w10 = unpack('v', substr($frame, 18, 2));
+        $n = unpack('v', substr($frame, 20, 2));
+
+        $seq = (int)($seq[1] ?? 0);
+        $tsMs = (int)($ts[1] ?? 0);
+        $width = ((int)($w10[1] ?? 30)) / 10.0;
+        $count = (int)($n[1] ?? 0);
+
+        if ($count < 2 || $count > 4096) {
+            return;
+        }
+
+        $expectedLen = 22 + ($count * 8);
+        if (strlen($frame) < $expectedLen) {
+            return;
+        }
+
+        $r = ord($frame[14]);
+        $g = ord($frame[15]);
+        $b = ord($frame[16]);
+        $color = sprintf('#%02x%02x%02x', $r, $g, $b);
+
+        // identify room + permissions like JSON draw
+        $senderCid = $this->connectionId($from);
+        $player = $this->players[$senderCid] ?? null;
+        if ($player === null) {
+            return;
+        }
+        $room = $this->rooms[$player->roomId] ?? null;
+        if ($room === null) {
+            return;
+        }
+
+        // only drawer may draw
+        if ($room->drawerConnectionId !== $senderCid) {
+            return;
+        }
+
+        // rate limit (same as JSON path)
+        $nowMs = (int)round(($this->clockMs)());
+        $last = $this->lastDrawAtMs[$senderCid] ?? null;
+        if ($last !== null && ($nowMs - $last) < $this->drawRateLimitMs) {
+            return;
+        }
+        $this->lastDrawAtMs[$senderCid] = $nowMs;
+
+        // parse points
+        $points = [];
+        $off = 22;
+        for ($i = 0; $i < $count; $i++) {
+            $xBytes = substr($frame, $off, 4);
+            $yBytes = substr($frame, $off + 4, 4);
+            $off += 8;
+
+            $ux = unpack('g', $xBytes);
+            $uy = unpack('g', $yBytes);
+            $x = (float)($ux[1] ?? 0.0);
+            $y = (float)($uy[1] ?? 0.0);
+
+            // clamp 0..1
+            if ($x < 0.0) {
+                $x = 0.0;
+            }
+            if ($x > 1.0) {
+                $x = 1.0;
+            }
+            if ($y < 0.0) {
+                $y = 0.0;
+            }
+            if ($y > 1.0) {
+                $y = 1.0;
+            }
+
+            $points[] = ['x' => $x, 'y' => $y];
+        }
+
+        $event = [
+            't' => 'stroke',
+            'p' => $points,
+            'c' => $color,
+            'w' => $width,
+        ];
+
+        // Keep current JSON batching pipeline for server state / tests.
+        $this->queueDrawEvent($room, $event);
+        $this->flushDrawOutbox($room);
+
+        // Additionally: broadcast an ultra-low-overhead binary frame (single stroke).
+        // Clients that support it draw immediately.
+        $bin = $this->packBinaryStroke($seq, $tsMs > 0 ? $tsMs : $nowMs, $r, $g, $b, $width, $points);
+        $this->broadcastBinary($room, $bin);
+    }
+
+    /** @param list<array{x:float,y:float}> $points */
+    private function packBinaryStroke(int $seq, int $tsMs, int $r, int $g, int $b, float $width, array $points): string
+    {
+        $count = count($points);
+        $w10 = (int)round($width * 10);
+        if ($w10 < 1) {
+            $w10 = 1;
+        }
+        if ($w10 > 500) {
+            $w10 = 500;
+        }
+
+        $header = self::DRAW_BIN_MAGIC
+            . chr(self::DRAW_BIN_VERSION)
+            . chr(self::DRAW_BIN_TYPE_STROKE)
+            . pack('V', $seq)
+            . pack('V', $tsMs)
+            . chr($r & 0xff)
+            . chr($g & 0xff)
+            . chr($b & 0xff)
+            . chr(0)
+            . pack('v', $w10)
+            . pack('v', $count);
+
+        $body = '';
+        foreach ($points as $pt) {
+            $body .= pack('g', (float)$pt['x']);
+            $body .= pack('g', (float)$pt['y']);
+        }
+
+        return $header . $body;
+    }
+
+    private function broadcastBinary(Room $room, string $frame): void
+    {
+        foreach ($room->players as $cid => $_) {
+            $conn = $this->connections[(string)$cid] ?? null;
+            if ($conn === null) {
+                continue;
+            }
+            // Ratchet supports sending raw strings; websocket layer decides text/binary.
+            $conn->send($frame);
+        }
     }
 }
