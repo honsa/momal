@@ -154,6 +154,14 @@ final class MomalServer implements MessageComponentInterface
         if ($existing !== null) {
             $oldRoom = $this->rooms[$existing->roomId] ?? null;
 
+            // If currently in a round, do not allow switching rooms.
+            if ($oldRoom !== null && $oldRoom->state === Room::STATE_IN_ROUND && $existing->roomId !== $roomId) {
+                $this->send($conn, ['type' => 'error', 'message' => 'Room-Wechsel während der Runde ist nicht möglich.']);
+                $this->broadcastRoomSnapshot($oldRoom);
+
+                return;
+            }
+
             // Switch room if needed.
             if ($existing->roomId !== $roomId && $oldRoom !== null) {
                 $oldRoom->removePlayer($cid);
