@@ -4,18 +4,31 @@
   <!-- subtle inner plate -->
   <rect x="8" y="8" width="48" height="48" rx="12" fill="#182433" stroke="#2b3948" stroke-width="2"/>
 
+  <!-- Paint stroke (looks like the brush painted over the M) -->
+  <g opacity="0.95" stroke-linecap="round" fill="none">
+    <path d="M18 40 C 24 28, 28 28, 32 34 C 36 40, 40 38, 46 26" stroke="#4da3ff" stroke-width="6"/>
+    <path d="M18 40 C 24 28, 28 28, 32 34 C 36 40, 40 38, 46 26" stroke="#ff4d6d" stroke-width="4.8"/>
+    <path d="M18 40 C 24 28, 28 28, 32 34 C 36 40, 40 38, 46 26" stroke="#ffd54a" stroke-width="3.6"/>
+    <path d="M18 40 C 24 28, 28 28, 32 34 C 36 40, 40 38, 46 26" stroke="#33d17a" stroke-width="2.4"/>
+  </g>
+
   <!-- Monogram M -->
   <path d="M20 44V20l12 16 12-16v24" fill="none" stroke="#cfe3ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Paintbrush (top-right) -->
-  <g transform="translate(45 15) rotate(25)">
+  <!-- Paintbrush (bigger, near the stroke) -->
+  <g transform="translate(44 18) rotate(35)">
     <!-- handle -->
-    <rect x="-1.2" y="8" width="2.4" height="16" rx="1.2" fill="#cfe3ff" opacity="0.9"/>
+    <rect x="-2" y="10" width="4" height="22" rx="2" fill="#e8eef7" opacity="0.95"/>
+    <rect x="-2" y="18" width="4" height="14" rx="2" fill="#0b0f14" opacity="0.25"/>
+
     <!-- ferrule -->
-    <rect x="-3" y="5" width="6" height="4" rx="1" fill="#a9b7c8"/>
-    <!-- bristles (3 colors) -->
-    <path d="M-3 5c0-3 1.5-5 3-5s3 2 3 5" fill="#ffd54a"/>
-    <path d="M-3 5c0-2 1.5-4 3-4s3 2 3 4" fill="#ff4d6d" opacity="0.9"/>
-    <path d="M-3 5c0-1.2 1.5-3 3-3s3 1.8 3 3" fill="#4da3ff" opacity="0.9"/>
+    <rect x="-5" y="6" width="10" height="6" rx="2" fill="#a9b7c8"/>
+    <rect x="-5" y="7" width="10" height="2" rx="1" fill="#7b8b9e" opacity="0.7"/>
+
+    <!-- bristles (4 colors) -->
+    <path d="M-5 6c0-5 2.5-8 5-8s5 3 5 8" fill="#ffd54a"/>
+    <path d="M-5 6c0-4 2.5-7 5-7s5 3 5 7" fill="#ff4d6d" opacity="0.95"/>
+    <path d="M-5 6c0-3 2.5-6 5-6s5 3 5 6" fill="#4da3ff" opacity="0.95"/>
+    <path d="M-5 6c0-2 2.5-5 5-5s5 3 5 5" fill="#33d17a" opacity="0.95"/>
   </g>
 </svg>
