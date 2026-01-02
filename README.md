@@ -22,7 +22,7 @@ composer install
 php server/ws-server.php
 ```
 
-Der Server lauscht standardmäßig auf `ws://localhost:8080`.
+Der Server lauscht standardmaessig auf `ws://localhost:8080`.
 
 ### 2) HTTP Server (Frontend + Highscore API)
 
@@ -32,7 +32,7 @@ In einem zweiten Terminal:
 php -S 0.0.0.0:8000 -t public public/index.php
 ```
 
-Dann im Browser öffnen:
+Dann im Browser oeffnen:
 
 - `http://localhost:8000`
 
@@ -50,15 +50,15 @@ Optional:
 
 ## Spielen
 
-1. In 2 Browser-Tabs/Fenstern öffnen.
+1. In 2 Browser-Tabs/Fenstern oeffnen.
 2. Beide geben den gleichen Room-Code ein (z.B. `ABC123`).
-3. Beide wählen unterschiedliche Namen (Namen sind pro Raum eindeutig, case-insensitive).
+3. Beide waehlen unterschiedliche Namen (Namen sind pro Raum eindeutig, case-insensitive).
 4. Der Host (erster Spieler im Raum) klickt **„Runde starten“**.
 5. Der Zeichner sieht das Wort und zeichnet. Die anderen raten im Chat.
 
 ## Hinweise
 
-- MVP: Antworten müssen aktuell **exakt** stimmen (case-insensitive).
+- MVP: Antworten muessen aktuell **exakt** stimmen (case-insensitive).
 - Highscore wird **pro Raum** gespeichert in `var/highscore-by-room.json`.
 
 ## Troubleshooting
@@ -81,7 +81,7 @@ MOMAL_WS_ALLOWED_ORIGINS="http://localhost:8000,http://127.0.0.1:8000" php serve
 
 ### WebSocket Payload Limits
 
-Zum Schutz gegen große Nachrichten (DoS):
+Zum Schutz gegen grosse Nachrichten (DoS):
 
 - `MOMAL_WS_MAX_TEXT_BYTES` (Default: `65536`)
 - `MOMAL_WS_MAX_BINARY_BYTES` (Default: `131072`)
@@ -103,20 +103,20 @@ MOMAL_CHAT_RATE_LIMIT_MS=250 MOMAL_DRAW_RATE_LIMIT_MS=25 php server/ws-server.ph
 
 ### WebSocket Smoke Test
 
-Wenn du prüfen willst, ob ein Client überhaupt WebSocket-Nachrichten (JSON + Binary `MOML` Frames) empfängt:
+Wenn du pruefen willst, ob ein Client ueberhaupt WebSocket-Nachrichten (JSON + Binary `MOML` Frames) empfaengt:
 
-- Öffne: `http://localhost:8000/ws-smoke.html`
+- Oeffne: `http://localhost:8000/ws-smoke.html`
 
 Die Seite loggt:
 
 - `json type=...` (z.B. `hello`, `room:snapshot`, `draw:batch`)
 - `binary len=... prefix=MOML` (Binary Draw Frames)
 
-Das ist hilfreich bei „Canvas bleibt weiß“ oder „nichts kommt beim Spieler an“.
+Das ist hilfreich bei „Canvas bleibt weiss“ oder „nichts kommt beim Spieler an“.
 
 ### Server Debug Logging
 
-Der WebSocket-Server hat optionales Debug-Logging (für Connect/Join/Draw/Broadcast). Aktivieren:
+Der WebSocket-Server hat optionales Debug-Logging (fuer Connect/Join/Draw/Broadcast). Aktivieren:
 
 ```sh
 MOMAL_DEBUG_WS=1 php server/ws-server.php
@@ -133,15 +133,6 @@ Die Logs landen in:
 - `var/log/ws-server.log`
 
 ## Tests & Code-Analyse
-
-### Pop!_OS Install-Hinweis
-
-Falls du PHP/Composer noch nicht installiert hast:
-
-```sh
-sudo apt update
-sudo apt install -y php php-cli php-mbstring php-xml unzip composer
-```
 
 ### PHPUnit
 
@@ -165,4 +156,4 @@ composer check
 
 Dieses Projekt steht unter der **MIT License** (siehe `LICENSE`).
 
-Drittanbieter-Abhängigkeiten werden per Composer eingebunden; Details siehe `THIRD_PARTY_NOTICES.md`.
+Drittanbieter-Abhaengigkeiten werden per Composer eingebunden; Details siehe `THIRD_PARTY_NOTICES.md`.
