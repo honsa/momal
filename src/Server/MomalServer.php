@@ -11,6 +11,7 @@ use Momal\Game\Room;
 use Ratchet\ConnectionInterface;
 use Ratchet\MessageComponentInterface;
 use Ratchet\RFC6455\Messaging\Frame;
+use Ratchet\WebSocket\WsConnection;
 
 final class MomalServer implements MessageComponentInterface
 {
@@ -89,10 +90,17 @@ final class MomalServer implements MessageComponentInterface
 
     public function onOpen(ConnectionInterface $conn): void
     {
-        $cid = $this->connectionId($conn);
-        $this->connections[$cid] = $conn;
+        // If we're behind Ratchet\WebSocket\WsServer, the passed connection is a WsConnection decorator.
+        // Keep it, so later ->send() can emit proper binary frames.
+        if ($conn instanceof WsConnection) {
+            $cid = $this->connectionId($conn->getConnection());
+            $this->connections[$cid] = $conn;
+        } else {
+            $cid = $this->connectionId($conn);
+            $this->connections[$cid] = $conn;
+        }
 
-        $this->send($conn, [
+        $this->send($this->connections[$cid], [
             'type' => 'hello',
             'connectionId' => $cid,
         ]);
