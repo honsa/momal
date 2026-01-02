@@ -886,13 +886,13 @@ final class MomalServer implements MessageComponentInterface
                 continue;
             }
 
-            // Ensure RFC6455 layer sends as OP_BINARY (otherwise browsers try to UTF-8 decode).
-            if ($conn instanceof \Ratchet\WebSocket\WsConnection) {
-                $conn->send((new Frame($frame, true, Frame::OP_BINARY))->getContents());
-            } else {
-                // Fallback: best effort
-                $conn->send($frame);
+            // Only WsConnection can reliably emit OP_BINARY. If we can't guarantee that,
+            // skip binary broadcast to avoid browsers trying to UTF-8 decode a text frame.
+            if (!$conn instanceof WsConnection) {
+                continue;
             }
+
+            $conn->send((new Frame($frame, true, Frame::OP_BINARY))->getContents());
         }
     }
 }
