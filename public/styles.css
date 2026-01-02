@@ -2,6 +2,7 @@
 .header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #202a33;background:#0d131a;position:sticky;top:0}
 .brand{font-weight:700;letter-spacing:.5px}
 .status{font-size:12px;padding:4px 8px;border-radius:999px;background:#1d2731;color:#cfe3ff}
+.toast{position:sticky;top:56px;z-index:10;margin:10px 14px 0;padding:10px 12px;border:1px solid #3a2a2a;background:#2a1414;color:#ffd7d7;border-radius:12px}
 .layout{display:grid;grid-template-columns:320px 1fr 360px;gap:14px;padding:14px}
 .panel{background:#0f1720;border:1px solid #1d2731;border-radius:12px;padding:12px}
 .canvasPanel{padding:0;overflow:hidden}
@@ -24,4 +25,3 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .chatName{font-weight:700}
 .hint{padding:10px 12px;border-top:1px solid #1d2731;font-size:12px;color:#a9b7c8}
 @media (max-width:1100px){.layout{grid-template-columns:1fr}.chat{height:260px}}
-

@@ -18,6 +18,7 @@
   const widthEl = $('width');
   const hintEl = $('hint');
   const highscoreEl = $('highscore');
+  const toastEl = $('toast');
 
   const canvas = $('canvas');
   const ctx = canvas.getContext('2d');
@@ -82,6 +83,7 @@
           myConnectionId = msg.connectionId;
           break;
         case 'error':
+          showToast(msg.message || 'Fehler');
           addChatLine('System', msg.message || 'Fehler', Math.floor(Date.now()/1000));
           break;
         case 'joined':
@@ -244,6 +246,17 @@
       .catch(() => {});
   }
 
+  function showToast(message, timeoutMs = 4000) {
+    if (!toastEl) return;
+    toastEl.textContent = message;
+    toastEl.hidden = false;
+
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => {
+      toastEl.hidden = true;
+    }, timeoutMs);
+  }
+
   // UI
   btnJoin.onclick = () => {
     const name = nameEl.value.trim() || 'Spieler';
@@ -287,4 +300,3 @@
 
   connect();
 })();
-
