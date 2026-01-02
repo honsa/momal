@@ -34,6 +34,11 @@
   let isDrawing = false;
   let last = null;
 
+  // Outgoing draw event batching (prevents gaps when server/network throttles)
+  const SEND_INTERVAL_MS = 16; // ~60fps
+  let pendingSegment = null;
+  let sendTimer = null;
+
   function setStatus(text) {
     statusEl.textContent = text;
   }
@@ -160,6 +165,20 @@
     ws.send(JSON.stringify({ type, ...payload }));
   }
 
+  function flushPendingSegment() {
+    if (!pendingSegment || !ws || ws.readyState !== WebSocket.OPEN) return;
+    send('draw:event', { payload: pendingSegment });
+    pendingSegment = null;
+  }
+
+  function scheduleFlush() {
+    if (sendTimer !== null) return;
+    sendTimer = window.setTimeout(() => {
+      sendTimer = null;
+      flushPendingSegment();
+    }, SEND_INTERVAL_MS);
+  }
+
   function setupCanvasResolution() {
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -235,7 +254,7 @@
     if (!isDrawing || !last || !canDraw()) return;
     const cur = canvasPos(e);
 
-    const payload = {
+    const segment = {
       t: 'line',
       x0: last.x, y0: last.y,
       x1: cur.x, y1: cur.y,
@@ -244,10 +263,19 @@
     };
 
     // draw locally immediately
-    drawEvent(payload);
+    drawEvent(segment);
 
-    // send normalized coords
-    send('draw:event', { payload });
+    // coalesce: keep oldest start and newest end within this frame
+    if (!pendingSegment) {
+      pendingSegment = segment;
+    } else {
+      pendingSegment.x1 = segment.x1;
+      pendingSegment.y1 = segment.y1;
+      pendingSegment.c = segment.c;
+      pendingSegment.w = segment.w;
+    }
+
+    scheduleFlush();
 
     last = cur;
     e.preventDefault();
@@ -257,6 +285,10 @@
     if (!canDraw()) return;
     isDrawing = false;
     last = null;
+
+    // make sure we don't lose the last segment
+    flushPendingSegment();
+
     e.preventDefault();
   }
 
