@@ -269,8 +269,29 @@ final class MomalServer implements MessageComponentInterface
             return;
         }
 
+        // Determine target room early to validate name uniqueness.
+        $room = $this->rooms[$roomId] ?? null;
+        if ($room === null) {
+            $room = new Room($roomId);
+            $this->rooms[$roomId] = $room;
+        }
+
         // Re-join semantics: same connection sends join again.
         $existing = $this->players[$cid] ?? null;
+
+        // Prevent duplicate names within the room (case-insensitive).
+        // Allow if it's the same connectionId re-joining with the same name.
+        foreach ($room->players as $otherCid => $otherPlayer) {
+            if ((string)$otherCid === $cid) {
+                continue;
+            }
+            if (mb_strtolower($otherPlayer->name) === mb_strtolower($name)) {
+                $this->send($conn, ['type' => 'error', 'message' => 'Name ist in diesem Raum bereits vergeben. Bitte wähle einen anderen Namen.']);
+
+                return;
+            }
+        }
+
         if ($existing !== null) {
             $oldRoom = $this->rooms[$existing->roomId] ?? null;
 
@@ -291,12 +312,6 @@ final class MomalServer implements MessageComponentInterface
                     unset($this->rooms[$oldRoom->id]);
                 }
             }
-        }
-
-        $room = $this->rooms[$roomId] ?? null;
-        if ($room === null) {
-            $room = new Room($roomId);
-            $this->rooms[$roomId] = $room;
         }
 
         $player = new Player($cid, $name, $roomId);

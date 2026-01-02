@@ -119,6 +119,27 @@ final class MomalServerTest extends TestCase
         self::assertNotNull($this->findJsonByType($c2, 'draw:batch'));
     }
 
+    public function testJoinRejectsDuplicatePlayerNamesInSameRoom(): void
+    {
+        $server = new MomalServer(new Words(['A']), new HighscoreStore($this->tmpHighscoreFile()));
+
+        $c1 = new FakeConnection(1);
+        $c2 = new FakeConnection(2);
+        $server->onOpen($c1);
+        $server->onOpen($c2);
+
+        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => 'Alice', 'roomId' => 'ABC123']));
+        $server->onMessage($c2, $this->json(['type' => 'join', 'name' => 'ALICE', 'roomId' => 'ABC123']));
+
+        self::assertNotNull($this->findJsonByType($c1, 'joined'));
+
+        $err = $this->findJsonByType($c2, 'error');
+        self::assertNotNull($err);
+        self::assertStringContainsString('vergeben', (string)($err['message'] ?? ''));
+
+        self::assertNull($this->findJsonByType($c2, 'joined'));
+    }
+
     private function tmpHighscoreFile(): string
     {
         $dir = sys_get_temp_dir() . '/momal-tests';
