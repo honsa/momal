@@ -587,7 +587,7 @@
   function refreshHighscore() {
     fetch('/api/highscore.php?limit=20')
       .then(r => r.json())
-      .then data => {
+      .then((data) => {
         highscoreEl.innerHTML = '';
         (data.top || []).forEach(el => {
           const li = document.createElement('li');
