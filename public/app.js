@@ -553,16 +553,27 @@
 
   function showToast(message, timeoutMs = 4000, kind = 'error') {
     if (!toastEl) return;
+
+    const normalizedKind = (kind === 'success') ? 'success' : 'error';
+
+    // content
     toastEl.textContent = message;
+
+    // visibility
     toastEl.hidden = false;
+    toastEl.removeAttribute('hidden');
 
     // style
+    toastEl.dataset.kind = normalizedKind;
     toastEl.classList.remove('toast--success', 'toast--error');
-    toastEl.classList.add(kind === 'success' ? 'toast--success' : 'toast--error');
+    toastEl.classList.add(normalizedKind === 'success' ? 'toast--success' : 'toast--error');
 
     window.clearTimeout(showToast._t);
     showToast._t = window.setTimeout(() => {
       toastEl.hidden = true;
+      toastEl.setAttribute('hidden', '');
+      toastEl.dataset.kind = '';
+      toastEl.classList.remove('toast--success', 'toast--error');
     }, timeoutMs);
   }
 
