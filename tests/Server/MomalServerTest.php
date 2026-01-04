@@ -140,6 +140,46 @@ final class MomalServerTest extends TestCase
         self::assertNull($this->findJsonByType($c2, 'joined'));
     }
 
+    public function testJoinRejectsEmptyName(): void
+    {
+        $server = new MomalServer(new Words(['A']), new HighscoreStore($this->tmpHighscoreFile()));
+
+        $c1 = new FakeConnection(1);
+        $server->onOpen($c1);
+
+        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => '   ', 'roomId' => 'ABC123']));
+
+        $err = $this->findJsonByType($c1, 'error');
+        self::assertNotNull($err);
+        self::assertStringContainsStringIgnoringCase('name', (string)($err['message'] ?? ''));
+        self::assertNull($this->findJsonByType($c1, 'joined'));
+    }
+
+    public function testJoinTrimsAndLimitsNameLength(): void
+    {
+        $server = new MomalServer(new Words(['A']), new HighscoreStore($this->tmpHighscoreFile()));
+
+        $c1 = new FakeConnection(1);
+        $server->onOpen($c1);
+
+        $long = '   ABCDEFGHIJKLMNOPQRSTUVWX   '; // > 20 chars
+        $server->onMessage($c1, $this->json(['type' => 'join', 'name' => $long, 'roomId' => 'ABC123']));
+
+        $joined = $this->findJsonByType($c1, 'joined');
+        self::assertNotNull($joined);
+
+        $snap = $this->findJsonByType($c1, 'room:snapshot');
+        self::assertNotNull($snap);
+
+        $players = $snap['players'] ?? null;
+        self::assertIsArray($players);
+        self::assertCount(1, $players);
+
+        $name = (string)($players[0]['name'] ?? '');
+        self::assertSame('ABCDEFGHIJKLMNOPQRST', $name);
+        self::assertSame(20, mb_strlen($name));
+    }
+
     private function tmpHighscoreFile(): string
     {
         $dir = sys_get_temp_dir() . '/momal-tests';

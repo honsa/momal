@@ -11,6 +11,9 @@ final class Player
     public readonly string $name;
     public readonly string $roomId;
 
+    public const NAME_MIN_LEN = 1;
+    public const NAME_MAX_LEN = 20;
+
     public function __construct(
         public readonly string $connectionId,
         string $name,
@@ -30,10 +33,16 @@ final class Player
 
     public static function sanitizeName(string $name): string
     {
+        // Normalize whitespace
         $name = \trim($name);
         $name = (string)(\preg_replace('/\s+/', ' ', $name) ?? '');
-        $name = \mb_substr($name, 0, 20);
 
-        return $name !== '' ? $name : 'Spieler';
+        // Remove control characters (incl. newlines, tabs after normalization, etc.)
+        $name = (string)(\preg_replace('/[\x00-\x1F\x7F]/u', '', $name) ?? '');
+
+        // Keep a reasonable length
+        $name = \mb_substr($name, 0, self::NAME_MAX_LEN);
+
+        return $name;
     }
 }

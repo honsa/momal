@@ -302,10 +302,16 @@ final class MomalServer implements MessageComponentInterface
         $roomId = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($data['roomId'] ?? '')) ?? '');
         $roomId = substr($roomId, 0, 6);
 
-        $name = Player::sanitizeName((string)($data['name'] ?? 'Spieler'));
+        $name = Player::sanitizeName((string)($data['name'] ?? ''));
 
         if ($roomId === '') {
             $this->send($conn, ['type' => 'error', 'message' => 'Room-Code fehlt']);
+
+            return;
+        }
+
+        if ($name === '') {
+            $this->send($conn, ['type' => 'error', 'message' => 'Name fehlt']);
 
             return;
         }

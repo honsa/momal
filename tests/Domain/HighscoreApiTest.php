@@ -22,7 +22,7 @@ final class HighscoreApiTest extends TestCase
         $out = ob_get_clean();
 
         self::assertIsString($out);
-        $data = json_decode($out, true);
+        $data = json_decode((string)$out, true);
 
         self::assertIsArray($data);
         self::assertSame('ROOM1', $data['roomId'] ?? null);
@@ -44,7 +44,7 @@ final class HighscoreApiTest extends TestCase
         require __DIR__ . '/../../public/api/highscore.php';
         $out = ob_get_clean();
 
-        $data = json_decode($out, true);
+        $data = json_decode((string)$out, true);
         self::assertIsArray($data);
         self::assertArrayHasKey('top', $data);
         self::assertIsArray($data['top']);

@@ -1256,9 +1256,39 @@
   }
 
   // UI
+  function normalizeNameForJoin(raw) {
+    let name = String(raw || '');
+    name = name.trim().replace(/\s+/g, ' ');
+    name = name.slice(0, 20);
+    return name;
+  }
+
+  function normalizeRoomForJoin(raw) {
+    let roomId = String(raw || '');
+    roomId = roomId.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    roomId = roomId.slice(0, 6);
+    return roomId;
+  }
+
   btnJoin.onclick = () => {
-    const name = nameEl.value.trim() || 'Spieler';
-    const roomId = roomEl.value.trim().toUpperCase();
+    const name = normalizeNameForJoin(nameEl.value);
+    const roomId = normalizeRoomForJoin(roomEl.value);
+
+    nameEl.value = name;
+    roomEl.value = roomId;
+
+    if (!name) {
+      showToast('Bitte gib einen Namen ein.');
+      nameEl.focus();
+      return;
+    }
+
+    if (!roomId) {
+      showToast('Bitte gib einen Room-Code ein.');
+      roomEl.focus();
+      return;
+    }
+
     send('join', { name, roomId });
     refreshHighscore();
   };
