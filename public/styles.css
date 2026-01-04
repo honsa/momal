@@ -1,6 +1,9 @@
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0b0f14;color:#e8eef7;--accent:#2563eb}
 .header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #202a33;background:#0d131a;position:sticky;top:0}
-.brand{font-weight:700;letter-spacing:.5px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.5px;color:inherit;text-decoration:none}
+.brand:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 55%, transparent);outline-offset:4px;border-radius:10px}
+.brandLogo{display:block;width:28px;height:28px}
+.brandText{line-height:1}
 .status{font-size:12px;padding:4px 8px;border-radius:999px;background:#1d2731;color:#cfe3ff;border:1px solid color-mix(in srgb,var(--accent) 35%, transparent)}
 .toast{position:sticky;top:56px;z-index:10;margin:10px 14px 0;padding:10px 12px;border-radius:12px}
 .toast--error,.toast[data-kind="error"]{border:1px solid #3a2a2a;background:#2a1414;color:#ffd7d7}
