@@ -52,11 +52,55 @@ nohup php server/ws-server.php > var/log/ws-server.log 2>&1 &
 
 **Auf einem Server (empfohlen: systemd Service):**
 
-Wenn du einen `systemd`-Service eingerichtet hast (z.B. `momal-ws.service`), dann:
+Wir betreiben den WebSocket-Server als `systemd`-Service **`momal-ws`**. Vorteile:
+
+- laeuft als eigener Dienst im Hintergrund
+- startet automatisch beim Booten
+- Restart bei Crash (`Restart=on-failure`)
+- Logs zentral via `journalctl`
+
+Beispiel-Unit (Pfad: `/etc/systemd/system/momal-ws.service`) – **bitte Werte anpassen**:
+
+```ini
+[Unit]
+Description=Momal WebSocket Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/momal
+ExecStart=/usr/bin/php server/ws-server.php
+Restart=on-failure
+RestartSec=1
+
+# Optional: Environment
+Environment=MOMAL_WS_PORT=8080
+Environment=MOMAL_WS_ALLOWED_ORIGINS=https://example.com
+# Environment=MOMAL_DEBUG_WS=1
+
+# Optional: Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Installieren/aktivieren (einmalig):
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now momal-ws
+```
+
+Neustart/Status/Logs:
 
 ```sh
 sudo systemctl restart momal-ws
 sudo systemctl status momal-ws
+sudo journalctl -u momal-ws -f
 ```
 
 > Tipp: Nach Code-Deploys muss der WebSocket-Server neu gestartet werden, damit die neue Version aktiv wird.
