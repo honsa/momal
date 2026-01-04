@@ -60,12 +60,12 @@
       <h3 id="playersTitle">Spieler</h3>
       <ul id="players" class="players" aria-labelledby="playersTitle" aria-live="polite" aria-relevant="additions removals text"></ul>
 
-      <h3>Score (aktuelle Runde)</h3>
-      <div class="highscoreTop" aria-live="polite">
+      <h3 id="scoreboardTitle">Score (aktuelle Runde)</h3>
+      <div class="highscoreTop" role="status" aria-live="polite" aria-label="Führend">
         <div class="small">Führend</div>
-        <div id="highscoreTop" class="highscoreTopValue">—</div>
+        <div id="highscoreTop" class="highscoreTopValue" aria-live="polite">—</div>
       </div>
-      <ol id="highscore" class="highscore scoreboard" aria-label="Scoreboard"></ol>
+      <ol id="highscore" class="highscore scoreboard" aria-labelledby="scoreboardTitle" aria-live="polite" aria-relevant="additions removals text"></ol>
     </section>
 
     <section class="panel canvasPanel">

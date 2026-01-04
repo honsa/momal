@@ -616,6 +616,7 @@
       const leader = players[0];
       const crown = leaderScore > 0 ? '👑 ' : '';
       highscoreTopEl.textContent = `${crown}${leader.name} — ${leaderScore}`;
+      highscoreTopEl.setAttribute('aria-label', `Führend: ${leader.name}, ${leaderScore} Punkte`);
     }
 
     for (const p of players) {
@@ -635,7 +636,8 @@
       const crownEl = document.createElement('span');
       crownEl.className = 'crown';
       crownEl.textContent = crown;
-      crownEl.setAttribute('aria-hidden', crown ? 'false' : 'true');
+      // Emoji is decorative; the accessible text is via aria-label on the list item.
+      crownEl.setAttribute('aria-hidden', 'true');
 
       const nameEl2 = document.createElement('span');
       nameEl2.className = 'name';
@@ -656,6 +658,13 @@
       }
 
       li.appendChild(pointsEl);
+
+      const parts = [];
+      if (isLeader && leaderScore > 0) parts.push('Führend');
+      parts.push(`${String(p.name ?? '')}, ${score} Punkte`);
+      if (tags.length) parts.push(tags.join(', '));
+      li.setAttribute('aria-label', parts.join('. '));
+
       highscoreEl.appendChild(li);
     }
   }
