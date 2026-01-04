@@ -34,7 +34,18 @@
       </div>
       <div class="row">
         <label>Room-Code</label>
-        <input id="roomId" maxlength="6" placeholder="z.B. ABC123" />
+        <input
+          id="roomId"
+          maxlength="6"
+          minlength="1"
+          required
+          inputmode="latin"
+          autocapitalize="characters"
+          autocomplete="off"
+          pattern="[A-Za-z0-9]{1,6}"
+          title="Room-Code: 1–6 Zeichen (A–Z, 0–9)"
+          placeholder="z.B. ABC123"
+        />
       </div>
       <div class="row gap">
         <button id="btnJoin">Beitreten</button>
