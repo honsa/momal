@@ -728,9 +728,43 @@
     const targetW = Math.round(displayW * dpr);
     const targetH = Math.round(displayH * dpr);
 
+    // IMPORTANT: changing canvas width/height clears the bitmap.
+    // Preserve current drawing across resizes by snapshotting and restoring.
     if (canvas.width !== targetW || canvas.height !== targetH) {
+      let snapshot = null;
+      let prevW = canvas.width;
+      let prevH = canvas.height;
+
+      if (prevW > 0 && prevH > 0) {
+        try {
+          snapshot = document.createElement('canvas');
+          snapshot.width = prevW;
+          snapshot.height = prevH;
+          const sctx = snapshot.getContext('2d');
+          if (sctx) {
+            sctx.drawImage(canvas, 0, 0);
+          }
+        } catch (_) {
+          snapshot = null;
+        }
+      }
+
       canvas.width = targetW;
       canvas.height = targetH;
+
+      // Reset transform before restoring.
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      if (snapshot) {
+        try {
+          // Scale old bitmap into the new resolution.
+          ctx.imageSmoothingEnabled = true;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(snapshot, 0, 0, prevW, prevH, 0, 0, canvas.width, canvas.height);
+        } catch (_) {
+          // ignore
+        }
+      }
     }
 
     // Work in pixel-space. Incoming/outgoing points are normalized (0..1) and
