@@ -526,7 +526,50 @@
     };
   }
 
+  let lastSnapshot = null;
+
+  function renderCurrentScores(snap) {
+    if (!highscoreEl) return;
+
+    const players = Array.isArray(snap?.players) ? snap.players.slice() : [];
+    players.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+
+    highscoreEl.innerHTML = '';
+
+    if (players.length === 0) {
+      if (highscoreTopEl) highscoreTopEl.textContent = '—';
+      return;
+    }
+
+    const leaderScore = Number(players[0].score) || 0;
+
+    // Top line
+    if (highscoreTopEl) {
+      const leader = players[0];
+      const crown = leaderScore > 0 ? '👑 ' : '';
+      highscoreTopEl.textContent = `${crown}${leader.name} — ${leaderScore}`;
+    }
+
+    for (const p of players) {
+      const score = Number(p.score) || 0;
+      const isLeader = (score === leaderScore) && players.length > 0;
+      const crown = (isLeader && leaderScore > 0) ? '👑 ' : '';
+
+      const tags = [
+        p.connectionId === myConnectionId ? 'Du' : null,
+        p.isHost ? 'Host' : null,
+        p.isDrawer ? 'Zeichner' : null,
+      ].filter(Boolean);
+
+      const li = document.createElement('li');
+      li.textContent = `${crown}${p.name} — ${score}${tags.length ? ' (' + tags.join(', ') + ')' : ''}`;
+      highscoreEl.appendChild(li);
+    }
+  }
+
   function renderSnapshot(snap) {
+    lastSnapshot = snap;
+
     state = snap.state;
     drawerConnectionId = snap.round?.drawerConnectionId ?? drawerConnectionId;
 
@@ -555,6 +598,9 @@
     if (state === 'lobby') {
       hintEl.textContent = isHost ? 'Du bist Host. Starte eine Runde, sobald mindestens 2 Spieler da sind.' : 'Warte, bis der Host startet.';
     }
+
+    // NEW: show current round scores in the highscore box
+    renderCurrentScores(snap);
   }
 
   function send(type, payload = {}) {
@@ -953,6 +999,12 @@
   }
 
   function refreshHighscore() {
+    // If we already have a snapshot, the UI-highscore is driven by live scores.
+    if (lastSnapshot) {
+      renderCurrentScores(lastSnapshot);
+      return;
+    }
+
     const roomId = (roomEl && roomEl.value ? roomEl.value.trim().toUpperCase() : '');
 
     if (!roomId) {
