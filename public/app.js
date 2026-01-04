@@ -349,21 +349,35 @@
   }
 
   function connect() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const isHttps = location.protocol === 'https:';
+    const proto = isHttps ? 'wss:' : 'ws:';
 
     let host = location.hostname;
     if (!host || host === '0.0.0.0' || host === '::' || host === '[::]') {
       host = '127.0.0.1';
     }
 
-    const url = `${proto}//${host}:8080`;
+    const isLocalHost = host === '127.0.0.1' || host === 'localhost';
+
+    // IMPORTANT:
+    // - When the site is served via HTTPS, we must NOT connect to :8080 (would require TLS on 8080).
+    //   Instead, use Apache reverse proxy on the same origin: wss://<host>/ws
+    // - Only for local development over HTTP, connect directly to ws://<host>:8080
+    const useDirectPort = (!isHttps) && isLocalHost;
+
+    const url = useDirectPort
+      ? `${proto}//${host}:8080`
+      : `${proto}//${host}/ws`;
+
+    // Debug (keep): helps confirm which URL is actually used in production.
+    console.log('[momal] connecting', url);
 
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
       setStatus('online');
-      showToast('WS verbunden');
+      showToast('WS verbunden', 2500, 'success');
     };
 
     ws.onclose = (e) => {
@@ -537,10 +551,14 @@
     ws.send(JSON.stringify({ type, ...payload }));
   }
 
-  function showToast(message, timeoutMs = 4000) {
+  function showToast(message, timeoutMs = 4000, kind = 'error') {
     if (!toastEl) return;
     toastEl.textContent = message;
     toastEl.hidden = false;
+
+    // style
+    toastEl.classList.remove('toast--success', 'toast--error');
+    toastEl.classList.add(kind === 'success' ? 'toast--success' : 'toast--error');
 
     window.clearTimeout(showToast._t);
     showToast._t = window.setTimeout(() => {

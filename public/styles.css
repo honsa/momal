@@ -2,7 +2,11 @@
 .header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #202a33;background:#0d131a;position:sticky;top:0}
 .brand{font-weight:700;letter-spacing:.5px}
 .status{font-size:12px;padding:4px 8px;border-radius:999px;background:#1d2731;color:#cfe3ff;border:1px solid color-mix(in srgb,var(--accent) 35%, transparent)}
-.toast{position:sticky;top:56px;z-index:10;margin:10px 14px 0;padding:10px 12px;border:1px solid #3a2a2a;background:#2a1414;color:#ffd7d7;border-radius:12px}
+.toast{position:sticky;top:56px;z-index:10;margin:10px 14px 0;padding:10px 12px;border-radius:12px}
+.toast--error{border:1px solid #3a2a2a;background:#2a1414;color:#ffd7d7}
+.toast--success{border:1px solid #1f3a2a;background:#0f2416;color:#d7ffe4}
+/* fallback (if no class is set) */
+.toast:not(.toast--success):not(.toast--error){border:1px solid #3a2a2a;background:#2a1414;color:#ffd7d7}
 .layout{display:grid;grid-template-columns:320px 1fr 360px;gap:14px;padding:14px}
 .panel{background:#0f1720;border:1px solid #1d2731;border-radius:12px;padding:12px}
 .canvasPanel{padding:0;overflow:hidden}
