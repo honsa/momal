@@ -15,12 +15,14 @@ final class HighscoreStoreTest extends TestCase
     {
         parent::setUp();
         $this->tmpFile = sys_get_temp_dir() . '/momal-highscore-' . bin2hex(random_bytes(8)) . '.json';
-        @unlink($this->tmpFile);
     }
 
     protected function tearDown(): void
     {
-        @unlink($this->tmpFile);
+        if (is_file($this->tmpFile)) {
+            unlink($this->tmpFile);
+        }
+
         parent::tearDown();
     }
 
