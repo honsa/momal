@@ -29,8 +29,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 body.is-drawing #canvas{cursor:url('brush-cursor.svg') 41 42, crosshair}
 .players,.highscore{margin:0;padding-left:18px}
 .players li{margin:6px 0}
-.highscoreTop{margin:8px 0 10px;padding:10px 12px;border:1px dashed #2d3b4b;border-radius:12px;background:#0b1118}
-.highscoreTopValue{font-size:16px;font-weight:800}
+
+/* Scoreboard */
+.scoreboard{padding-left:0;list-style:none}
+.scoreboard li{display:flex;align-items:baseline;gap:8px;margin:8px 0;padding:6px 8px;border-radius:10px;background:#0b1118;border:1px solid #1d2731}
+.scoreboard .crown{width:1.4em;flex:0 0 1.4em;text-align:center}
+.scoreboard .name{flex:1 1 auto;font-weight:700}
+.scoreboard .meta{flex:0 0 auto;color:#7b8b9e;font-size:12px}
+.scoreboard .points{flex:0 0 auto;font-weight:800}
+.scoreboard li.is-leader{border-color:color-mix(in srgb,var(--accent) 55%, #1d2731);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 25%, transparent) inset}
+
 .chat{height:380px;overflow:auto;border:1px solid #1d2731;border-radius:12px;padding:10px;background:#0b1118}
 .chatLine{margin:6px 0;line-height:1.2}
 .chatName{font-weight:700}

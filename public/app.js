@@ -553,7 +553,7 @@
     for (const p of players) {
       const score = Number(p.score) || 0;
       const isLeader = (score === leaderScore) && players.length > 0;
-      const crown = (isLeader && leaderScore > 0) ? '👑 ' : '';
+      const crown = (isLeader && leaderScore > 0) ? '👑' : '';
 
       const tags = [
         p.connectionId === myConnectionId ? 'Du' : null,
@@ -562,7 +562,32 @@
       ].filter(Boolean);
 
       const li = document.createElement('li');
-      li.textContent = `${crown}${p.name} — ${score}${tags.length ? ' (' + tags.join(', ') + ')' : ''}`;
+      if (isLeader && leaderScore > 0) li.classList.add('is-leader');
+
+      const crownEl = document.createElement('span');
+      crownEl.className = 'crown';
+      crownEl.textContent = crown;
+      crownEl.setAttribute('aria-hidden', crown ? 'false' : 'true');
+
+      const nameEl2 = document.createElement('span');
+      nameEl2.className = 'name';
+      nameEl2.textContent = String(p.name ?? '');
+
+      const pointsEl = document.createElement('span');
+      pointsEl.className = 'points';
+      pointsEl.textContent = String(score);
+
+      li.appendChild(crownEl);
+      li.appendChild(nameEl2);
+
+      if (tags.length) {
+        const metaEl = document.createElement('span');
+        metaEl.className = 'meta';
+        metaEl.textContent = `(${tags.join(', ')})`;
+        li.appendChild(metaEl);
+      }
+
+      li.appendChild(pointsEl);
       highscoreEl.appendChild(li);
     }
   }
