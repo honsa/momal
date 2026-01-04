@@ -20,6 +20,12 @@ final class FakeConnection implements ConnectionInterface
 
     public bool $closed = false;
 
+    /** @var mixed Used by Ratchet\WebSocket\WsServer in tests */
+    public mixed $httpRequest = null;
+
+    /** @var mixed Used by Ratchet\WebSocket\WsServer in tests */
+    public mixed $WebSocket = null;
+
     public function __construct(
         public int $resourceId,
     ) {
