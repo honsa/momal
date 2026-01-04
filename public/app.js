@@ -60,6 +60,10 @@
   let strokeColor = '#000000';
   let strokeWidth = 3;
 
+  // NEW: stroke stitching so remote clients can draw continuously across chunks
+  let strokeId = 0;
+  let lastSentPoint = null;
+
   // Outgoing draw pacing
   const SEND_INTERVAL_MS = 16;
   const MAX_POINTS_PER_CHUNK = 160;
@@ -801,13 +805,23 @@
       return;
     }
 
-    if (pendingPoints.length < 2 && !forceSinglePoint) {
+    // Stitch across chunks: if we already sent part of the stroke, prepend the last sent point.
+    // This avoids visible gaps between chunks under fast drawing.
+    let pointsToSend = pendingPoints;
+    if (lastSentPoint && pointsToSend.length >= 1) {
+      pointsToSend = [lastSentPoint, ...pointsToSend];
+    }
+
+    if (pointsToSend.length < 2 && !forceSinglePoint) {
       return;
     }
 
-    const pointsToSend = pendingPoints.length >= 2
-      ? pendingPoints
-      : [pendingPoints[0], pendingPoints[0]];
+    if (pointsToSend.length < 2) {
+      pointsToSend = [pointsToSend[0], pointsToSend[0]];
+    }
+
+    // Keep for next stitch.
+    lastSentPoint = pointsToSend[pointsToSend.length - 1];
 
     const tsMs = Math.floor(localNowAsServerMs());
 
@@ -933,6 +947,9 @@
     isDrawing = true;
     setDrawingCursor(true);
 
+    strokeId += 1;
+    lastSentPoint = null;
+
     strokeColor = colorEl.value;
     strokeWidth = Number(widthEl.value);
 
@@ -1020,6 +1037,10 @@
 
     // Send whatever remains.
     flushStrokeChunk(true);
+
+    // reset stitch anchor for next stroke
+    lastSentPoint = null;
+
     e.preventDefault();
   }
 
