@@ -102,6 +102,16 @@
     return String(s).replace(/[^a-zA-Z0-9#(),.%\s-]/g, '');
   }
 
+  function isDebugEnabled() {
+    try {
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('debug') === '1') return true;
+      return (localStorage.getItem('momalDebug') === '1');
+    } catch (_) {
+      return false;
+    }
+  }
+
   function updateTimeOffset(serverTsMs) {
     if (!Number.isFinite(serverTsMs)) return;
     const localNow = performance.now();
@@ -369,8 +379,9 @@
       ? `${proto}//${host}:8080`
       : `${proto}//${host}/ws`;
 
-    // Debug (keep): helps confirm which URL is actually used in production.
-    console.log('[momal] connecting', url);
+    if (isDebugEnabled()) {
+      console.log('[momal] connecting', url);
+    }
 
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
