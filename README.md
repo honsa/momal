@@ -24,6 +24,43 @@ php server/ws-server.php
 
 Der Server lauscht standardmaessig auf `ws://localhost:8080`.
 
+#### WebSocket-Server neu starten
+
+**Lokal (Terminal):**
+
+- Beenden: `Ctrl+C`
+- Danach erneut starten:
+
+```sh
+php server/ws-server.php
+```
+
+**Wenn der Server im Hintergrund laeuft (Linux):**
+
+Wenn du ihn z.B. via `nohup` gestartet hast, beende den Prozess und starte neu:
+
+```sh
+# Prozess finden
+ps aux | grep "server/ws-server.php" | grep -v grep
+
+# beenden (PID anpassen)
+kill <PID>
+
+# neu starten
+nohup php server/ws-server.php > var/log/ws-server.log 2>&1 &
+```
+
+**Auf einem Server (empfohlen: systemd Service):**
+
+Wenn du einen `systemd`-Service eingerichtet hast (z.B. `momal-ws.service`), dann:
+
+```sh
+sudo systemctl restart momal-ws
+sudo systemctl status momal-ws
+```
+
+> Tipp: Nach Code-Deploys muss der WebSocket-Server neu gestartet werden, damit die neue Version aktiv wird.
+
 ### 2) HTTP Server (Frontend + Highscore API)
 
 In einem zweiten Terminal:
