@@ -32,7 +32,17 @@ input,button{border-radius:10px;border:1px solid #283544;background:#0b1118;colo
 #canvas{display:block;width:100%;height:auto;background:#ffffff;touch-action:none;cursor:crosshair}
 body.is-drawing #canvas{cursor:url('brush-cursor.svg') 41 42, crosshair}
 .players,.highscore{margin:0;padding-left:18px}
-.players li{margin:6px 0}
+.players{padding-left:0;list-style:none}
+.players li{margin:8px 0}
+.playerRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:#0b1118;border:1px solid #1d2731}
+.playerLeft{display:flex;align-items:center;gap:10px;min-width:0}
+.playerName{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.playerScore{font-weight:800;flex:0 0 auto}
+.badges{display:inline-flex;gap:6px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;font-size:11px;line-height:1;padding:4px 8px;border-radius:999px;border:1px solid #283544;background:#111c28;color:#e8eef7}
+.badge--host{border-color:color-mix(in srgb,var(--accent) 65%, #283544)}
+.badge--drawer{border-color:#b45309;background:#1a1208;color:#ffe9d6}
+.badge--me{border-color:#1d4ed8;background:#0b1530;color:#dbe7ff}
 
 /* Scoreboard */
 .scoreboard{padding-left:0;list-style:none}

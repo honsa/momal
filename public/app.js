@@ -20,6 +20,7 @@
   const highscoreEl = $('highscore');
   const highscoreTopEl = $('highscoreTop');
   const toastEl = $('toast');
+  const joinForm = $('joinForm');
 
   const canvas = $('canvas');
   const ctx = canvas.getContext('2d');
@@ -666,14 +667,50 @@
     drawerConnectionId = snap.round?.drawerConnectionId ?? drawerConnectionId;
 
     playersEl.innerHTML = '';
-    (snap.players || []).sort((a,b) => b.score - a.score).forEach(p => {
+    (snap.players || []).sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0)).forEach(p => {
       const li = document.createElement('li');
-      const tags = [
-        p.isHost ? 'Host' : null,
-        p.isDrawer ? 'Zeichner' : null,
-        p.connectionId === myConnectionId ? 'Du' : null
-      ].filter(Boolean).join(', ');
-      li.textContent = `${p.name} — ${p.score} ${tags ? '('+tags+')' : ''}`;
+      li.className = 'playerRow';
+
+      const left = document.createElement('div');
+      left.className = 'playerLeft';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'playerName';
+      nameSpan.textContent = String(p.name ?? '');
+
+      const badges = document.createElement('span');
+      badges.className = 'badges';
+
+      const addBadge = (text, kind) => {
+        const bEl = document.createElement('span');
+        bEl.className = `badge badge--${kind}`;
+        bEl.textContent = text;
+        badges.appendChild(bEl);
+      };
+
+      if (p.connectionId === myConnectionId) addBadge('Du', 'me');
+      if (p.isHost) addBadge('Host', 'host');
+      if (p.isDrawer) addBadge('Zeichner', 'drawer');
+
+      left.appendChild(nameSpan);
+      if (badges.childNodes.length > 0) {
+        left.appendChild(badges);
+      }
+
+      const scoreSpan = document.createElement('span');
+      scoreSpan.className = 'playerScore';
+      scoreSpan.textContent = String(Number(p.score) || 0);
+
+      li.appendChild(left);
+      li.appendChild(scoreSpan);
+
+      // Helpful for screen readers
+      const roleParts = [];
+      if (p.connectionId === myConnectionId) roleParts.push('du');
+      if (p.isHost) roleParts.push('Host');
+      if (p.isDrawer) roleParts.push('Zeichner');
+      li.setAttribute('aria-label', `${p.name}, ${scoreSpan.textContent} Punkte${roleParts.length ? ', ' + roleParts.join(', ') : ''}`);
+
       playersEl.appendChild(li);
 
       if (p.connectionId === myConnectionId) {
@@ -1278,12 +1315,18 @@
     return roomId;
   }
 
-  btnJoin.onclick = () => {
+  function submitJoin() {
     const name = normalizeNameForJoin(nameEl.value);
     const roomId = normalizeRoomForJoin(roomEl.value);
 
     nameEl.value = name;
     roomEl.value = roomId;
+
+    // Let native validation run first (required/pattern/minlength)
+    if (joinForm && typeof joinForm.reportValidity === 'function') {
+      const ok = joinForm.reportValidity();
+      if (!ok) return;
+    }
 
     if (!name) {
       showToast('Bitte gib einen Namen ein.');
@@ -1299,6 +1342,18 @@
 
     send('join', { name, roomId });
     refreshHighscore();
+  }
+
+  if (joinForm) {
+    joinForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitJoin();
+    });
+  }
+
+  btnJoin.onclick = (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    submitJoin();
   };
 
   btnStart.onclick = () => {

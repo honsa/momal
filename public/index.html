@@ -13,7 +13,7 @@
       <img class="brandLogo" src="/favicon.svg" alt="Momal" width="28" height="28" />
       <span class="brandText">Momal</span>
     </a>
-    <div class="status" id="status">offline</div>
+    <div class="status" id="status" role="status" aria-live="polite">offline</div>
   </header>
 
   <div id="toast" class="toast" hidden></div>
@@ -21,42 +21,44 @@
   <main class="layout">
     <section class="panel">
       <h2>Raum</h2>
-      <div class="row">
-        <label>Name</label>
-        <input
-          id="name"
-          maxlength="20"
-          minlength="1"
-          required
-          autocomplete="nickname"
-          inputmode="text"
-          pattern=".*\\S.*"
-          title="Bitte gib einen Namen ein (mindestens 1 sichtbares Zeichen)."
-          placeholder="Dein Name"
-        />
-      </div>
-      <div class="row">
-        <label>Room-Code</label>
-        <input
-          id="roomId"
-          maxlength="6"
-          minlength="1"
-          required
-          inputmode="latin"
-          autocapitalize="characters"
-          autocomplete="off"
-          pattern="[A-Za-z0-9]{1,6}"
-          title="Room-Code: 1–6 Zeichen (A–Z, 0–9)"
-          placeholder="z.B. ABC123"
-        />
-      </div>
-      <div class="row gap">
-        <button id="btnJoin">Beitreten</button>
-        <button id="btnStart" disabled>Runde starten (Host)</button>
-      </div>
+      <form id="joinForm">
+        <div class="row">
+          <label for="name">Name</label>
+          <input
+            id="name"
+            maxlength="20"
+            minlength="1"
+            required
+            autocomplete="nickname"
+            inputmode="text"
+            pattern=".*\\S.*"
+            title="Bitte gib einen Namen ein (mindestens 1 sichtbares Zeichen)."
+            placeholder="Dein Name"
+          />
+        </div>
+        <div class="row">
+          <label for="roomId">Room-Code</label>
+          <input
+            id="roomId"
+            maxlength="6"
+            minlength="1"
+            required
+            inputmode="latin"
+            autocapitalize="characters"
+            autocomplete="off"
+            pattern="[A-Za-z0-9]{1,6}"
+            title="Room-Code: 1–6 Zeichen (A–Z, 0–9)"
+            placeholder="z.B. ABC123"
+          />
+        </div>
+        <div class="row gap">
+          <button id="btnJoin" type="submit">Beitreten</button>
+          <button id="btnStart" type="button" disabled>Runde starten (Host)</button>
+        </div>
+      </form>
 
-      <h3>Spieler</h3>
-      <ul id="players" class="players"></ul>
+      <h3 id="playersTitle">Spieler</h3>
+      <ul id="players" class="players" aria-labelledby="playersTitle" aria-live="polite" aria-relevant="additions removals text"></ul>
 
       <h3>Score (aktuelle Runde)</h3>
       <div class="highscoreTop" aria-live="polite">
@@ -80,22 +82,22 @@
           <div id="secretWord" class="word">—</div>
         </div>
         <div class="tools">
-          <label class="small">Farbe</label>
-          <input type="color" id="color" value="#000000" />
-          <label class="small">Breite</label>
-          <input type="range" id="width" min="1" max="12" value="4" />
+          <label class="small" for="color">Farbe</label>
+          <input type="color" id="color" value="#000000" aria-label="Pinsel-Farbe" />
+          <label class="small" for="width">Breite</label>
+          <input type="range" id="width" min="1" max="12" value="4" aria-label="Pinsel-Breite" />
           <button id="btnClear" disabled>Löschen</button>
         </div>
       </div>
       <canvas id="canvas" width="900" height="520"></canvas>
-      <div class="hint" id="hint">Tipp: Host startet die Runde. Zeichner zeichnet, alle anderen raten im Chat.</div>
+      <div class="hint" id="hint" role="status" aria-live="polite">Tipp: Host startet die Runde. Zeichner zeichnet, alle anderen raten im Chat.</div>
     </section>
 
     <section class="panel">
       <h2>Chat / Antworten</h2>
-      <div id="chat" class="chat"></div>
+      <div id="chat" class="chat" role="log" aria-live="polite" aria-relevant="additions" aria-label="Chat-Verlauf"></div>
       <div class="row gap">
-        <input id="chatInput" placeholder="Antwort / Chat…" maxlength="200" />
+        <input id="chatInput" placeholder="Antwort / Chat…" maxlength="200" aria-label="Antwort eingeben" />
         <button id="btnSend">Senden</button>
       </div>
     </section>
