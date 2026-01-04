@@ -50,4 +50,3 @@ final class HighscoreApiTest extends TestCase
         self::assertIsArray($data['top']);
     }
 }
-
