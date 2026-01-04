@@ -67,7 +67,8 @@
   // Outgoing draw pacing
   const SEND_INTERVAL_MS = 16;
   const MAX_POINTS_PER_CHUNK = 160;
-  const MAX_POINT_STEP = 0.004;
+  // Smaller step => denser sampling => fewer gaps on fast strokes
+  const MAX_POINT_STEP = 0.002;
   let sendTimer = null;
 
   // Incoming draw rendering queue (smooth remote rendering)
@@ -774,8 +775,8 @@
     // stroke events (polyline)
     if (ev.t === 'stroke' && Array.isArray(ev.p) && ev.p.length >= 2) {
       // Interpolate between points to avoid visible gaps when points are sparse.
-      // max step ~1.5% of canvas size
-      const maxStep = 0.015;
+      // Smaller step improves continuity when the sender is forced to chunk aggressively.
+      const maxStep = 0.008;
 
       ctx.beginPath();
       let prev = ev.p[0];
@@ -880,30 +881,34 @@
     const tsMs = Math.floor(localNowAsServerMs());
 
     // Prefer binary transport; server will broadcast binary too.
+    let binarySent = false;
     if (ws && ws.readyState === WebSocket.OPEN) {
       try {
         const buf = packBinaryStroke(drawSeq, tsMs, strokeColor, strokeWidth, pointsToSend);
         ws.send(buf);
         drawSeq += 1;
+        binarySent = true;
       } catch (_) {
-        // Fall back to JSON below.
+        binarySent = false;
       }
     }
 
-    // Fallback JSON (compat)
-    const packed = pointsToSend.map((pt) => ({
-      x: Math.round(pt.x * 10000) / 10000,
-      y: Math.round(pt.y * 10000) / 10000,
-    }));
+    // Fallback JSON (compat) only if binary send failed.
+    if (!binarySent) {
+      const packed = pointsToSend.map((pt) => ({
+        x: Math.round(pt.x * 10000) / 10000,
+        y: Math.round(pt.y * 10000) / 10000,
+      }));
 
-    send('draw:stroke', {
-      payload: {
-        t: 'stroke',
-        p: packed,
-        c: strokeColor,
-        w: strokeWidth
-      }
-    });
+      send('draw:stroke', {
+        payload: {
+          t: 'stroke',
+          p: packed,
+          c: strokeColor,
+          w: strokeWidth
+        }
+      });
+    }
 
     pendingPoints = [];
   }
