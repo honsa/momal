@@ -57,6 +57,15 @@ final class MomalServer implements MessageComponentInterface
      */
     private array $drawOutbox = [];
 
+    /**
+     * Binary draw seq per room (server-authoritative).
+     * We must not trust client-provided seq because it can restart across reconnects/tabs,
+     * and clients may drop out-of-order frames.
+     *
+     * @var array<string,int>
+     */
+    private array $drawBinNextSeq = [];
+
     /** @var array<string, int> roomId => last flush ms */
     private array $drawOutboxLastFlushMs = [];
 
@@ -919,7 +928,11 @@ final class MomalServer implements MessageComponentInterface
 
         // Additionally: broadcast an ultra-low-overhead binary frame (single stroke).
         // Clients that support it draw immediately.
-        $bin = $this->packBinaryStroke($seq, $tsMs > 0 ? $tsMs : $nowMs, $r, $g, $b, $width, $points);
+        $roomId = (string)$room->id;
+        $serverSeq = $this->drawBinNextSeq[$roomId] ?? 1;
+        $this->drawBinNextSeq[$roomId] = $serverSeq + 1;
+
+        $bin = $this->packBinaryStroke($serverSeq, $tsMs > 0 ? $tsMs : $nowMs, $r, $g, $b, $width, $points);
         $this->broadcastBinary($room, $bin);
     }
 
