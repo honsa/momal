@@ -490,6 +490,14 @@
           case 'error':
             showToast(msg.message || 'Fehler');
             addChatLine('System', msg.message || 'Fehler', Math.floor(Date.now()/1000));
+
+            if ((msg.message || '').toLowerCase().includes('name')) {
+              try {
+                nameEl.focus();
+              } catch (_) {
+                // ignore
+              }
+            }
             break;
           case 'joined':
             joined = true;

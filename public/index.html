@@ -20,7 +20,17 @@
       <h2>Raum</h2>
       <div class="row">
         <label>Name</label>
-        <input id="name" maxlength="20" placeholder="Dein Name" />
+        <input
+          id="name"
+          maxlength="20"
+          minlength="1"
+          required
+          autocomplete="nickname"
+          inputmode="text"
+          pattern=".*\\S.*"
+          title="Bitte gib einen Namen ein (mindestens 1 sichtbares Zeichen)."
+          placeholder="Dein Name"
+        />
       </div>
       <div class="row">
         <label>Room-Code</label>
