@@ -23,8 +23,9 @@
 .row{display:flex;flex-direction:column;gap:6px;margin:10px 0}
 .row.gap{flex-direction:row;align-items:center}
 input,button{border-radius:10px;border:1px solid #283544;background:#0b1118;color:#e8eef7;padding:10px}
-button{cursor:pointer;background:#182433;border-color:color-mix(in srgb,var(--accent) 30%, #283544)}
-button:disabled{opacity:.5;cursor:not-allowed}
+/* Chat input: make it wider and easier to hit */
+.row.gap #chatInput{flex:1 1 auto;min-width:180px;padding:12px 12px}
+.row.gap #btnSend{flex:0 0 auto}
 #canvas{display:block;width:100%;height:auto;background:#ffffff;touch-action:none;cursor:crosshair}
 body.is-drawing #canvas{cursor:url('brush-cursor.svg') 41 42, crosshair}
 .players,.highscore{margin:0;padding-left:18px}
