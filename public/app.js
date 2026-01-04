@@ -106,6 +106,53 @@
     return String(s).replace(/[^a-zA-Z0-9#(),.%\s-]/g, '');
   }
 
+  // Incoming stroke stitching (receiver-side).
+  // When the drawer sends strokes in chunks (for perf), we need to join them into a continuous line.
+  // We keep the last point of the previous stroke-chunk (per style) and re-attach it to the next.
+  const incomingStrokeAnchor = new Map();
+
+  function strokeKey(ev) {
+    const c = (ev && typeof ev.c === 'string') ? ev.c : '';
+    const w = (ev && (typeof ev.w === 'number' || typeof ev.w === 'string')) ? String(ev.w) : '';
+    return `${c}|${w}`;
+  }
+
+  function pointsClose(a, b) {
+    if (!a || !b) return false;
+    const dx = (Number(a.x) || 0) - (Number(b.x) || 0);
+    const dy = (Number(a.y) || 0) - (Number(b.y) || 0);
+    // epsilon in normalized space (0..1)
+    return (dx * dx + dy * dy) <= 0.0000005;
+  }
+
+  function stitchIncomingStroke(ev) {
+    if (!ev || ev.t !== 'stroke' || !Array.isArray(ev.p) || ev.p.length < 2) {
+      return ev;
+    }
+
+    const key = strokeKey(ev);
+    const anchor = incomingStrokeAnchor.get(key) || null;
+    const pts = ev.p;
+
+    // Most common case: chunks are sent with the previous last point prepended.
+    // => drop the duplicate and ensure continuity.
+    if (anchor && pointsClose(anchor, pts[0])) {
+      const rest = pts.slice(1);
+      if (rest.length >= 1) {
+        ev = { ...ev, p: [anchor, ...rest] };
+      }
+    }
+
+    const outPts = ev.p;
+    incomingStrokeAnchor.set(key, outPts[outPts.length - 1]);
+
+    return ev;
+  }
+
+  function resetIncomingStrokeAnchors() {
+    incomingStrokeAnchor.clear();
+  }
+
   function isDebugEnabled() {
     try {
       const qs = new URLSearchParams(location.search);
@@ -202,9 +249,12 @@
   function enqueueRenderBatch(events, tsMs) {
     if (!Array.isArray(events) || events.length === 0) return;
 
+    // Ensure each stroke in a batch is stitched before enqueueing.
+    const stitchedEvents = events.map((e) => stitchIncomingStroke(e));
+
     if (Number.isFinite(tsMs)) updateTimeOffset(Number(tsMs));
 
-    tuneJitterBufferOnBatch(events.length);
+    tuneJitterBufferOnBatch(stitchedEvents.length);
 
     const nowServerMs = localNowAsServerMs();
     const targetDue = nowServerMs + jitterBufferMs;
@@ -215,14 +265,14 @@
 
     const baseDue = Math.max(targetDue, lastDueMs);
 
-    if (SPREAD_WITHIN_BATCH_MS > 0 && events.length > 1) {
-      for (let i = 0; i < events.length; i++) {
-        const ev = events[i];
-        renderQueue.push({ ev, dueMs: baseDue + (i * (SPREAD_WITHIN_BATCH_MS / events.length)) });
+    if (SPREAD_WITHIN_BATCH_MS > 0 && stitchedEvents.length > 1) {
+      for (let i = 0; i < stitchedEvents.length; i++) {
+        const ev = stitchedEvents[i];
+        renderQueue.push({ ev, dueMs: baseDue + (i * (SPREAD_WITHIN_BATCH_MS / stitchedEvents.length)) });
       }
     } else {
-      for (let i = 0; i < events.length; i++) {
-        renderQueue.push({ ev: events[i], dueMs: baseDue });
+      for (let i = 0; i < stitchedEvents.length; i++) {
+        renderQueue.push({ ev: stitchedEvents[i], dueMs: baseDue });
       }
     }
 
@@ -417,11 +467,13 @@
       if (decoded) {
         if (Number.isFinite(decoded.tsMs)) updateTimeOffset(Number(decoded.tsMs));
 
+        const stitched = stitchIncomingStroke(decoded.payload);
+
         // Primary path: smooth render queue
-        enqueueRender(decoded.payload, { tsMs: decoded.tsMs });
+        enqueueRender(stitched, { tsMs: decoded.tsMs });
 
         // Safety net: draw immediately as well so remote canvases never stay blank.
-        drawEvent(decoded.payload);
+        drawEvent(stitched);
 
         return;
       }
@@ -505,13 +557,14 @@
           case 'draw:event':
           case 'draw:stroke':
             if (msg.payload) {
-              enqueueRender(msg.payload);
+              enqueueRender(stitchIncomingStroke(msg.payload));
             }
             break;
           case 'round:clear':
             clearCanvasLocal();
             expectedDrawSeq = null;
             pendingBatches.clear();
+            resetIncomingStrokeAnchors();
             break;
           case 'round:ended':
             addChatLine('System', `${msg.reason} Wort war: ${msg.word}` , Math.floor(Date.now()/1000));
@@ -520,12 +573,13 @@
             btnClear.disabled = true;
             expectedDrawSeq = null;
             pendingBatches.clear();
+            resetIncomingStrokeAnchors();
             break;
           default:
             break;
         }
       } catch (_) {
-        return;
+        // ignore non-JSON frames
       }
     };
   }
