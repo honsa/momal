@@ -68,16 +68,16 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=/path/to/momal
+User=momal
+Group=momal
+WorkingDirectory=/srv/momal
 ExecStart=/usr/bin/php server/ws-server.php
 Restart=on-failure
 RestartSec=1
 
 # Optional: Environment
 Environment=MOMAL_WS_PORT=8080
-Environment=MOMAL_WS_ALLOWED_ORIGINS=https://example.com
+# Environment=MOMAL_WS_ALLOWED_ORIGINS=https://your-domain.example
 # Environment=MOMAL_DEBUG_WS=1
 
 # Optional: Hardening
