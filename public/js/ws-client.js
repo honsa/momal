@@ -5,21 +5,49 @@
   const Momal = window.Momal;
   if (!Momal) throw new Error('Momal core missing');
 
+  function getOverride(key) {
+    try {
+      const qs = new URLSearchParams(location.search);
+      const v = qs.get(key);
+      if (v !== null && String(v).trim() !== '') return String(v).trim();
+
+      const lsKey = `momal_${key}`;
+      const ls = localStorage.getItem(lsKey);
+      if (ls !== null && String(ls).trim() !== '') return String(ls).trim();
+    } catch (_) {
+      // ignore
+    }
+    return null;
+  }
+
+  function normalizeHost(raw) {
+    const host = String(raw || '').trim();
+    if (!host || host === '0.0.0.0' || host === '::' || host === '[::]') return '127.0.0.1';
+    return host;
+  }
+
   function buildWsUrl() {
     const isHttps = location.protocol === 'https:';
     const proto = isHttps ? 'wss:' : 'ws:';
 
-    let host = location.hostname;
-    if (!host || host === '0.0.0.0' || host === '::' || host === '[::]') {
-      host = '127.0.0.1';
-    }
+    const hostOverride = getOverride('wsHost');
+    const host = normalizeHost(hostOverride || location.hostname);
 
     const isLocalHost = host === '127.0.0.1' || host === 'localhost';
-    const useDirectPort = (!isHttps) && isLocalHost;
+    const useDirectPortDefault = (!isHttps) && isLocalHost;
+
+    const wsPortOverride = getOverride('wsPort');
+    const wsPathOverride = getOverride('wsPath');
+
+    const wsPort = wsPortOverride ? parseInt(wsPortOverride, 10) : 8080;
+    const wsPath = wsPathOverride || '/ws';
+
+    // If user explicitly set a port, always use it.
+    const useDirectPort = wsPortOverride ? true : useDirectPortDefault;
 
     return useDirectPort
-      ? `${proto}//${host}:8080`
-      : `${proto}//${host}/ws`;
+      ? `${proto}//${host}:${Number.isFinite(wsPort) ? wsPort : 8080}`
+      : `${proto}//${host}${wsPath.startsWith('/') ? wsPath : '/' + wsPath}`;
   }
 
   /**
@@ -103,4 +131,3 @@
 
   Momal.createWsClient = createWsClient;
 })();
-

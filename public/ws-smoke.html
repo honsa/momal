@@ -7,24 +7,61 @@
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
     pre { background: #111; color:#ddd; padding: 12px; border-radius: 8px; overflow:auto; }
+    .hint { font-size: 12px; opacity: .8; }
+    code { background: #eee; padding: 1px 4px; border-radius: 4px; }
   </style>
 </head>
 <body>
 <h1>WS Smoke Test</h1>
 <p>This page prints every WS message type it receives.</p>
+<p class="hint">
+  Overrides: <code>?wsHost=127.0.0.1</code> <code>&amp;wsPort=8080</code> <code>&amp;wsPath=/ws</code>
+</p>
 <pre id="out"></pre>
 <script>
   const out = document.getElementById('out');
   const log = (s) => { out.textContent += s + "\n"; };
 
-  // If opened via file://, location.hostname can be empty -> ws://:8080 is invalid.
-  const hostname = (location.hostname && location.hostname.trim())
-    ? location.hostname
-    : (location.host && location.host.split(':')[0])
-      ? location.host.split(':')[0]
-      : '127.0.0.1';
+  function getOverride(key) {
+    try {
+      const qs = new URLSearchParams(location.search);
+      const v = qs.get(key);
+      if (v !== null && String(v).trim() !== '') return String(v).trim();
+    } catch (_) {
+      // ignore
+    }
+    return null;
+  }
 
-  const url = `ws://${hostname}:8080`;
+  function normalizeHost(raw) {
+    const host = String(raw || '').trim();
+    if (!host || host === '0.0.0.0' || host === '::' || host === '[::]') return '127.0.0.1';
+    return host;
+  }
+
+  function buildWsUrl() {
+    const isHttps = location.protocol === 'https:';
+    const proto = isHttps ? 'wss:' : 'ws:';
+
+    // If opened via file://, location.hostname can be empty.
+    const host = normalizeHost(getOverride('wsHost') || location.hostname || (location.host ? location.host.split(':')[0] : ''));
+
+    const wsPortOverride = getOverride('wsPort');
+    const wsPathOverride = getOverride('wsPath');
+
+    const wsPort = wsPortOverride ? parseInt(wsPortOverride, 10) : 8080;
+    const wsPath = wsPathOverride || '/ws';
+
+    const isLocalHost = host === '127.0.0.1' || host === 'localhost';
+    const useDirectPortDefault = (!isHttps) && isLocalHost;
+    const useDirectPort = wsPortOverride ? true : useDirectPortDefault;
+
+    return useDirectPort
+      ? `${proto}//${host}:${Number.isFinite(wsPort) ? wsPort : 8080}`
+      : `${proto}//${host}${wsPath.startsWith('/') ? wsPath : '/' + wsPath}`;
+  }
+
+  const url = buildWsUrl();
   log('connecting ' + url);
 
   const ws = new WebSocket(url);
