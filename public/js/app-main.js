@@ -5,6 +5,8 @@
   const Momal = window.Momal;
   if (!Momal) throw new Error('Momal core missing');
 
+  if (!Momal.createWsClient) throw new Error('Momal WS client missing');
+
   const $ = Momal.$;
 
   const els = {
@@ -36,7 +38,7 @@
   const ui = Momal.createUi(els);
 
   // State
-  let ws = null;
+  let ws = null; // kept (debug/legacy), but actual IO goes through wsClient
   let joined = false;
   let isHost = false;
   let myConnectionId = null;
@@ -111,8 +113,7 @@
   }
 
   function send(type, payload = {}) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type, ...payload }));
+    wsClient.sendJson({ type, ...payload });
   }
 
   function renderSnapshot(snap) {
@@ -204,154 +205,7 @@
   }
 
   function connect() {
-    const isHttps = location.protocol === 'https:';
-    const proto = isHttps ? 'wss:' : 'ws:';
-
-    let host = location.hostname;
-    if (!host || host === '0.0.0.0' || host === '::' || host === '[::]') {
-      host = '127.0.0.1';
-    }
-
-    const isLocalHost = host === '127.0.0.1' || host === 'localhost';
-    const useDirectPort = (!isHttps) && isLocalHost;
-
-    const url = useDirectPort
-      ? `${proto}//${host}:8080`
-      : `${proto}//${host}/ws`;
-
-    if (Momal.isDebugEnabled()) {
-      console.log('[momal] connecting', url);
-    }
-
-    ws = new WebSocket(url);
-    ws.binaryType = 'arraybuffer';
-
-    ws.onopen = () => {
-      ui.setStatus('online');
-      ui.showToast('WS verbunden', 2500, 'success');
-    };
-
-    ws.onclose = (e) => {
-      ui.setStatus('offline');
-      ui.showToast(`WS getrennt (${e.code || 0})`);
-      joined = false;
-      isHost = false;
-      drawerConnectionId = null;
-      state = 'lobby';
-      els.btnStart.disabled = true;
-      els.btnClear.disabled = true;
-      els.secretWordEl.textContent = '—';
-      ui.setHint('Verbindung getrennt. Seite neu laden.');
-    };
-
-    ws.onerror = () => {
-      ui.showToast('WS Fehler (siehe console)');
-    };
-
-    ws.onmessage = (ev) => {
-      const decoded = Momal.binary.tryDecodeBinaryFrame(ev.data);
-      if (decoded) {
-        if (Number.isFinite(decoded.tsMs)) draw.updateTimeOffset(Number(decoded.tsMs));
-
-        const stitched = draw.stitchIncomingStroke(decoded.payload);
-        draw.enqueueRender(stitched, { tsMs: decoded.tsMs });
-        draw.drawEvent(stitched);
-        return;
-      }
-
-      try {
-        const msg = JSON.parse(ev.data);
-        if (!msg || !msg.type) return;
-
-        switch (msg.type) {
-          case 'hello':
-            myConnectionId = msg.connectionId;
-            break;
-          case 'error':
-            ui.showToast(msg.message || 'Fehler');
-            ui.addChatLine('System', msg.message || 'Fehler', Math.floor(Date.now() / 1000));
-            if ((msg.message || '').toLowerCase().includes('name')) {
-              try { els.nameEl.focus(); } catch (_) { /* ignore */ }
-            }
-            break;
-          case 'joined':
-            joined = true;
-            isHost = !!msg.isHost;
-            els.btnStart.disabled = !isHost;
-            break;
-          case 'chat:new':
-            ui.addChatLine(msg.name, msg.text, msg.ts);
-            break;
-          case 'room:snapshot':
-            renderSnapshot(msg);
-            break;
-          case 'round:started':
-            drawerConnectionId = msg.drawerConnectionId;
-            els.secretWordEl.textContent = '—';
-            draw.clearCanvasLocal();
-
-            if (msg.accentColor) setAccentColor(msg.accentColor);
-
-            window.requestAnimationFrame(() => {
-              draw.setupCanvasResolution();
-            });
-
-            ui.setHint((drawerConnectionId === myConnectionId)
-              ? 'Du bist Zeichner. Zeichne das Wort (oben erscheint es gleich).'
-              : 'Rate im Chat!');
-
-            if (drawerConnectionId === myConnectionId) maybeSetDrawerDefaultColor();
-            break;
-          case 'round:word':
-            els.secretWordEl.textContent = msg.word;
-            break;
-          case 'draw:batch': {
-            const seq = Number(msg.seq);
-            const events = Array.isArray(msg.events) ? msg.events : [];
-            if (!Number.isFinite(seq) || events.length === 0) break;
-
-            if (Number.isFinite(msg.tsMs)) draw.updateTimeOffset(Number(msg.tsMs));
-
-            if (expectedDrawSeq === null) expectedDrawSeq = seq;
-
-            pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
-
-            if (seq !== expectedDrawSeq) {
-              scheduleGapCheck();
-              drainPendingBatchesWithinWindow();
-            }
-
-            drainPendingBatches(false);
-            break;
-          }
-          case 'draw:event':
-          case 'draw:stroke':
-            if (msg.payload) {
-              draw.enqueueRender(draw.stitchIncomingStroke(msg.payload));
-            }
-            break;
-          case 'round:clear':
-            draw.clearCanvasLocal();
-            expectedDrawSeq = null;
-            pendingBatches.clear();
-            draw.resetIncomingStrokeAnchors();
-            break;
-          case 'round:ended':
-            ui.addChatLine('System', `${msg.reason} Wort war: ${msg.word}`, Math.floor(Date.now() / 1000));
-            drawerConnectionId = null;
-            els.secretWordEl.textContent = '—';
-            els.btnClear.disabled = true;
-            expectedDrawSeq = null;
-            pendingBatches.clear();
-            draw.resetIncomingStrokeAnchors();
-            break;
-          default:
-            break;
-        }
-      } catch (_) {
-        // ignore non-JSON frames
-      }
-    };
+    ws = wsClient.connect();
   }
 
   function renderHighscoreFromApi(roomId) {
@@ -437,10 +291,10 @@
     const tsMs = Math.floor(localNowAsServerMs());
 
     let binarySent = false;
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (wsClient.isOpen()) {
       try {
         const buf = Momal.binary.packBinaryStroke(drawSeq, tsMs, strokeColor, strokeWidth, pointsToSend);
-        ws.send(buf);
+        wsClient.sendRaw(buf);
         drawSeq += 1;
         binarySent = true;
       } catch (_) {
