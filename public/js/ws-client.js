@@ -27,6 +27,15 @@
   }
 
   function buildWsUrl() {
+    // Prefer shared builder (used by smoke tools too).
+    if (Momal.wsUrl && typeof Momal.wsUrl.buildWsUrl === 'function') {
+      try {
+        return Momal.wsUrl.buildWsUrl();
+      } catch (_) {
+        // fallback to local implementation
+      }
+    }
+
     const isHttps = location.protocol === 'https:';
     const proto = isHttps ? 'wss:' : 'ws:';
 

@@ -33,6 +33,7 @@
   <script src="/js/core.js?v=1"></script>
   <script src="/js/binary-protocol.js?v=1"></script>
   <script src="/js/draw.js?v=1"></script>
+  <script src="/js/ws-url.js?v=1"></script>
   <script src="/js/ws-client.js?v=1"></script>
   <script src="/js/draw-sync.js?v=1"></script>
   <script src="/js/stroke-sender.js?v=1"></script>
@@ -113,6 +114,12 @@
         } catch (_) {
           // ignore
         }
+
+        const effectiveUrl = (window.Momal.wsUrl && typeof window.Momal.wsUrl.buildWsUrl === 'function')
+          ? window.Momal.wsUrl.buildWsUrl()
+          : '(unknown)';
+
+        log('effective ws url:', effectiveUrl);
 
         wsClient = window.Momal.createWsClient({
            onOpen: () => log('open'),
