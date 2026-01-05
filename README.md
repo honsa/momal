@@ -204,6 +204,8 @@ Wenn du gezielt unsere Vanilla-JS Module testen willst (ohne die komplette Game-
 
 - Oeffne: `http://localhost:8000/ws-smoke-modules.html`
 
+Die Seite zeigt beim Klick auf **Connect** auch die **effektiv verwendete WebSocket-URL** an (so wie `ws-client.js` sie baut). Das ist hilfreich, wenn du nicht sicher bist, ob gerade `:8080` (lokal) oder `/ws` (Reverse Proxy) genutzt wird.
+
 Sie nutzt:
 
 - `public/js/ws-client.js`
