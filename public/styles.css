@@ -202,6 +202,32 @@ button {
   padding: 10px;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, #283544);
+  background: color-mix(in srgb, var(--accent) 12%, #0b1118);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+  filter: saturate(0.8);
+}
+
+button:disabled:hover,
+button[aria-disabled="true"]:hover {
+  background: #0b1118;
+  border-color: #283544;
+}
+
 /* Chat input: make it wider and easier to hit */
 .row.gap #chatInput {
   flex: 1 1 auto;
@@ -220,11 +246,6 @@ button {
   height: auto;
   background: #ffffff;
   touch-action: none;
-  cursor: crosshair;
-}
-
-body.is-drawing #canvas {
-  cursor: url('brush-cursor.svg') 41 42, crosshair;
 }
 
 /* Players */
