@@ -716,7 +716,7 @@ final class MomalServer implements MessageComponentInterface
         $this->broadcast($room, [
             'type' => 'round:ended',
             'reason' => $reason,
-            'word' => $room->word,
+            'word' => (string)$room->word,
         ]);
 
         $this->broadcastRoomSnapshot($room);

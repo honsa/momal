@@ -36,6 +36,8 @@ final class MomalServerEdgeCasesTest extends TestCase
         $remaining = $drawerId === '1' ? $c2 : $c1;
         $ended = $this->findJsonByType($remaining, 'round:ended');
         self::assertNotNull($ended);
+        self::assertArrayHasKey('word', $ended);
+        self::assertIsString($ended['word']);
     }
 
     public function testWhenHostLeavesNewHostIsAssignedInSnapshot(): void
