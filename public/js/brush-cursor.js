@@ -58,6 +58,9 @@
 
     const isActive = (typeof isDrawing === 'function') ? isDrawing : () => document.body.classList.contains('is-drawing');
 
+    // Default hover cursor (non-drawing state)
+    canvas.style.cursor = 'pointer';
+
     function apply() {
       if (!isActive()) return;
 
@@ -73,7 +76,8 @@
     }
 
     function clear() {
-      canvas.style.cursor = '';
+      // Revert to hover cursor when not drawing.
+      canvas.style.cursor = 'pointer';
     }
 
     function setActive(active) {
@@ -104,4 +108,3 @@
 
   Momal.createBrushCursor = createBrushCursor;
 })();
-
