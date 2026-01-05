@@ -8,6 +8,7 @@
   if (!Momal.createWsClient) throw new Error('Momal WS client missing');
   if (!Momal.createGameState) throw new Error('Momal game state missing');
   if (!Momal.createDrawSync) throw new Error('Momal draw sync missing');
+  if (!Momal.createStrokeSender) throw new Error('Momal stroke sender missing');
 
   const $ = Momal.$;
 
@@ -41,10 +42,6 @@
 
   const game = Momal.createGameState({ els, ui, draw });
   const drawSync = Momal.createDrawSync({ draw });
-
-  // State
-  let ws = null; // kept (debug/legacy), but actual IO goes through wsClient
-
   const wsClient = Momal.createWsClient({
     onOpen: () => {
       ui.setStatus('online');
@@ -85,6 +82,15 @@
     }
   });
 
+  const strokeSender = Momal.createStrokeSender({
+    wsClient,
+    canDraw: () => game.canDraw(),
+    nowMs: () => performance.now(),
+    maxPointStep: 0.002,
+    sendIntervalMs: 16,
+    maxPointsPerChunk: 160,
+  });
+
   function canDraw() {
     return game.canDraw();
   }
@@ -92,26 +98,14 @@
   // Outgoing draw state
   let isDrawing = false;
   let last = null;
-  let pendingPoints = [];
   let strokeColor = '#000000';
   let strokeWidth = 3;
-  let lastSentPoint = null;
 
-  const SEND_INTERVAL_MS = 16;
-  const MAX_POINTS_PER_CHUNK = 160;
   const MAX_POINT_STEP = 0.002;
-
-  let sendTimer = null;
-  let flushScheduled = false;
-  let drawSeq = 1;
 
   // draw v2 sequencing handled by draw-sync module
 
-  function localNowAsServerMs() {
-    // draw.updateTimeOffset uses the same smoothing, so we re-map through it by calling updateTimeOffset when we get server timestamps.
-    // Here we just use performance.now() as the local baseline.
-    return performance.now();
-  }
+  // localNowAsServerMs now lives inside strokeSender
 
   function normalizeNameForJoin(raw) {
     let name = String(raw || '');
@@ -177,100 +171,6 @@
     return draw.normalizeCanvasPoint(e);
   }
 
-  function addPointWithResampling(prev, cur) {
-    const dx = cur.x - prev.x;
-    const dy = cur.y - prev.y;
-    const dist = Math.hypot(dx, dy);
-
-    if (dist <= MAX_POINT_STEP) {
-      pendingPoints.push(cur);
-      return;
-    }
-
-    const steps = Math.ceil(dist / MAX_POINT_STEP);
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      pendingPoints.push({
-        x: prev.x + dx * t,
-        y: prev.y + dy * t,
-      });
-    }
-  }
-
-  function flushStrokeChunk(forceSinglePoint = false) {
-    if (!canDraw()) return;
-    if (!pendingPoints || pendingPoints.length === 0) {
-      pendingPoints = [];
-      return;
-    }
-
-    let pointsToSend = pendingPoints;
-    if (lastSentPoint && pointsToSend.length >= 1) {
-      pointsToSend = [lastSentPoint, ...pointsToSend];
-    }
-
-    if (pointsToSend.length < 2 && !forceSinglePoint) return;
-
-    if (pointsToSend.length < 2) {
-      pointsToSend = [pointsToSend[0], pointsToSend[0]];
-    }
-
-    lastSentPoint = pointsToSend[pointsToSend.length - 1];
-
-    const tsMs = Math.floor(localNowAsServerMs());
-
-    let binarySent = false;
-    if (wsClient.isOpen()) {
-      try {
-        const buf = Momal.binary.packBinaryStroke(drawSeq, tsMs, strokeColor, strokeWidth, pointsToSend);
-        wsClient.sendRaw(buf);
-        drawSeq += 1;
-        binarySent = true;
-      } catch (_) {
-        binarySent = false;
-      }
-    }
-
-    if (!binarySent) {
-      const packed = pointsToSend.map((pt) => ({
-        x: Math.round(pt.x * 10000) / 10000,
-        y: Math.round(pt.y * 10000) / 10000,
-      }));
-
-      send('draw:stroke', {
-        payload: {
-          t: 'stroke',
-          p: packed,
-          c: strokeColor,
-          w: strokeWidth
-        }
-      });
-    }
-
-    pendingPoints = [];
-  }
-
-  function scheduleFrameFlush() {
-    if (flushScheduled) return;
-    flushScheduled = true;
-    window.requestAnimationFrame(() => {
-      flushScheduled = false;
-      flushStrokeChunk(false);
-      if (isDrawing && pendingPoints.length > 0) scheduleFrameFlush();
-    });
-  }
-
-  function scheduleStrokeFlush() {
-    if (sendTimer !== null) return;
-
-    sendTimer = window.setTimeout(() => {
-      sendTimer = null;
-      flushStrokeChunk(false);
-    }, SEND_INTERVAL_MS);
-
-    scheduleFrameFlush();
-  }
-
   function setDrawingCursor(active) {
     if (active) {
       document.body.classList.add('is-drawing');
@@ -286,16 +186,12 @@
     isDrawing = true;
     setDrawingCursor(true);
 
-    lastSentPoint = null;
-
     strokeColor = els.colorEl.value;
     strokeWidth = Number(els.widthEl.value);
 
     const p = canvasPos(e);
     last = p;
-    pendingPoints = [p];
-
-    flushStrokeChunk(true);
+    strokeSender.beginStroke(p, { color: strokeColor, width: strokeWidth });
     e.preventDefault();
   }
 
@@ -305,6 +201,7 @@
         isDrawing = false;
         last = null;
         setDrawingCursor(false);
+        strokeSender.reset();
       }
       return;
     }
@@ -323,13 +220,10 @@
           w: strokeWidth
         });
 
-        addPointWithResampling(last, cur);
+        strokeSender.pushPoint(last, cur);
         last = cur;
-
-        if (pendingPoints.length >= MAX_POINTS_PER_CHUNK) flushStrokeChunk(false);
       }
 
-      scheduleStrokeFlush();
       e.preventDefault();
       return;
     }
@@ -344,12 +238,8 @@
       w: strokeWidth
     });
 
-    addPointWithResampling(last, cur);
-
-    if (pendingPoints.length >= MAX_POINTS_PER_CHUNK) {
-      flushStrokeChunk(false);
-    } else {
-      scheduleStrokeFlush();
+    if (Math.hypot(cur.x - last.x, cur.y - last.y) >= MAX_POINT_STEP) {
+      strokeSender.pushPoint(last, cur);
     }
 
     last = cur;
@@ -359,6 +249,7 @@
   function onPointerUp(e) {
     if (!canDraw()) {
       setDrawingCursor(false);
+      strokeSender.reset();
       return;
     }
 
@@ -366,8 +257,7 @@
     last = null;
     setDrawingCursor(false);
 
-    flushStrokeChunk(true);
-    lastSentPoint = null;
+    strokeSender.endStroke();
 
     e.preventDefault();
   }
