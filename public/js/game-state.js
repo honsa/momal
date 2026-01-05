@@ -84,21 +84,11 @@
      *
      * @param {{type:string, [key:string]:any}} msg
      * @param {{
-     *   expectedDrawSeqRef?: { value: number|null },
-     *   pendingBatches?: Map<number, any>,
-     *   scheduleGapCheck?: Function,
-     *   drainPendingBatchesWithinWindow?: Function,
-     *   drainPendingBatches?: Function,
+     *   onDrawBatch?: Function,
      * }} helpers
      */
     function applyWsMessage(msg, helpers) {
-      const {
-        expectedDrawSeqRef,
-        pendingBatches,
-        scheduleGapCheck,
-        drainPendingBatchesWithinWindow,
-        drainPendingBatches,
-      } = helpers || {};
+      const { onDrawBatch } = helpers || {};
 
       if (!msg || !msg.type) return;
 
@@ -152,24 +142,9 @@
           break;
 
         case 'draw:batch': {
-          if (!expectedDrawSeqRef || !pendingBatches || typeof drainPendingBatches !== 'function') return;
-
-          const seq = Number(msg.seq);
-          const events = Array.isArray(msg.events) ? msg.events : [];
-          if (!Number.isFinite(seq) || events.length === 0) break;
-
-          if (Number.isFinite(msg.tsMs)) draw.updateTimeOffset(Number(msg.tsMs));
-
-          if (expectedDrawSeqRef.value === null) expectedDrawSeqRef.value = seq;
-
-          pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
-
-          if (seq !== expectedDrawSeqRef.value) {
-            if (typeof scheduleGapCheck === 'function') scheduleGapCheck();
-            if (typeof drainPendingBatchesWithinWindow === 'function') drainPendingBatchesWithinWindow();
+          if (typeof onDrawBatch === 'function') {
+            onDrawBatch(msg);
           }
-
-          drainPendingBatches(false);
           break;
         }
 
@@ -182,8 +157,6 @@
 
         case 'round:clear':
           draw.clearCanvasLocal();
-          if (expectedDrawSeqRef) expectedDrawSeqRef.value = null;
-          if (pendingBatches) pendingBatches.clear();
           draw.resetIncomingStrokeAnchors();
           break;
 
@@ -192,8 +165,6 @@
           state.drawerConnectionId = null;
           els.secretWordEl.textContent = '—';
           els.btnClear.disabled = true;
-          if (expectedDrawSeqRef) expectedDrawSeqRef.value = null;
-          if (pendingBatches) pendingBatches.clear();
           draw.resetIncomingStrokeAnchors();
           break;
 

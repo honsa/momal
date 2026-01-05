@@ -7,6 +7,7 @@
 
   if (!Momal.createWsClient) throw new Error('Momal WS client missing');
   if (!Momal.createGameState) throw new Error('Momal game state missing');
+  if (!Momal.createDrawSync) throw new Error('Momal draw sync missing');
 
   const $ = Momal.$;
 
@@ -39,6 +40,7 @@
   const ui = Momal.createUi(els);
 
   const game = Momal.createGameState({ els, ui, draw });
+  const drawSync = Momal.createDrawSync({ draw });
 
   // State
   let ws = null; // kept (debug/legacy), but actual IO goes through wsClient
@@ -59,6 +61,7 @@
       els.btnClear.disabled = true;
       els.secretWordEl.textContent = '—';
       ui.setHint('Verbindung getrennt. Seite neu laden.');
+      drawSync.reset();
     },
     onError: () => {
       ui.showToast('WS Fehler (siehe console)');
@@ -71,12 +74,14 @@
     },
     onJsonMessage: (msg) => {
       game.applyWsMessage(msg, {
-        expectedDrawSeqRef: { get value() { return expectedDrawSeq; }, set value(v) { expectedDrawSeq = v; } },
-        pendingBatches,
-        scheduleGapCheck,
-        drainPendingBatchesWithinWindow,
-        drainPendingBatches,
+        onDrawBatch: (batchMsg) => {
+          drawSync.onBatch({ seq: batchMsg.seq, events: batchMsg.events, tsMs: batchMsg.tsMs });
+        }
       });
+
+      if (msg && (msg.type === 'round:clear' || msg.type === 'round:ended')) {
+        drawSync.reset();
+      }
     }
   });
 
@@ -100,12 +105,7 @@
   let flushScheduled = false;
   let drawSeq = 1;
 
-  // draw v2 sequencing (optional)
-  let expectedDrawSeq = null; // number|null
-  const pendingBatches = new Map(); // seq -> {events:[], tsMs:number|null}
-  let gapTimer = null;
-
-  const DRAW_REORDER_WINDOW = 6;
+  // draw v2 sequencing handled by draw-sync module
 
   function localNowAsServerMs() {
     // draw.updateTimeOffset uses the same smoothing, so we re-map through it by calling updateTimeOffset when we get server timestamps.
@@ -132,64 +132,6 @@
   }
 
   // renderSnapshot handled by game-state module
-
-  function scheduleGapCheck() {
-    if (gapTimer !== null) return;
-    gapTimer = window.setTimeout(() => {
-      gapTimer = null;
-      drainPendingBatches(true);
-    }, 90);
-  }
-
-  function drainPendingBatchesWithinWindow() {
-    if (expectedDrawSeq === null) return;
-
-    for (let i = 0; i < DRAW_REORDER_WINDOW; i++) {
-      const k = expectedDrawSeq + i;
-      if (!pendingBatches.has(k)) continue;
-      if (i === 0) return;
-
-      const batchObj = pendingBatches.get(k);
-      pendingBatches.delete(k);
-
-      const events = batchObj && Array.isArray(batchObj.events) ? batchObj.events : [];
-      const tsMs = batchObj && Number.isFinite(batchObj.tsMs) ? Number(batchObj.tsMs) : null;
-      draw.enqueueRenderBatch(events, tsMs);
-      break;
-    }
-  }
-
-  function drainPendingBatches(force = false) {
-    if (expectedDrawSeq === null) return;
-
-    while (pendingBatches.has(expectedDrawSeq)) {
-      const batchObj = pendingBatches.get(expectedDrawSeq);
-      pendingBatches.delete(expectedDrawSeq);
-
-      const events = batchObj && Array.isArray(batchObj.events) ? batchObj.events : [];
-      const tsMs = batchObj && Number.isFinite(batchObj.tsMs) ? Number(batchObj.tsMs) : null;
-      draw.enqueueRenderBatch(events, tsMs);
-
-      expectedDrawSeq += 1;
-      force = false;
-    }
-
-    if (force && pendingBatches.size > 0) {
-      const keys = Array.from(pendingBatches.keys()).filter((k) => Number.isFinite(k)).sort((a, b) => a - b);
-      const k = keys[0];
-      if (!Number.isFinite(k)) return;
-
-      const batchObj = pendingBatches.get(k);
-      pendingBatches.delete(k);
-      expectedDrawSeq = k + 1;
-
-      const events = batchObj && Array.isArray(batchObj.events) ? batchObj.events : [];
-      const tsMs = batchObj && Number.isFinite(batchObj.tsMs) ? Number(batchObj.tsMs) : null;
-      draw.enqueueRenderBatch(events, tsMs);
-
-      drainPendingBatches(false);
-    }
-  }
 
   function connect() {
     ws = wsClient.connect();
