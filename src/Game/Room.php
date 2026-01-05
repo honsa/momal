@@ -33,6 +33,12 @@ final class Room
 
     public ?string $word = null;
 
+    /**
+     * Last used word for this room (to avoid immediate repeats across rounds).
+     * This is kept even when the active round state is reset.
+     */
+    public ?string $lastWord = null;
+
     public int $roundStartedAt = 0;
     public int $roundDurationSec = 80;
 
@@ -98,7 +104,8 @@ final class Room
         $this->drawerConnectionId = $this->pickNextDrawer();
         $this->lastDrawerConnectionId = $this->drawerConnectionId;
 
-        $this->word = $words->randomWord($this->word);
+        $this->word = $words->randomWord($this->lastWord);
+        $this->lastWord = $this->word;
         $this->roundStartedAt = \time();
 
         // everybody is allowed to guess except drawer

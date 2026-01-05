@@ -11,6 +11,31 @@ use PHPUnit\Framework\TestCase;
 
 final class RoomTest extends TestCase
 {
+    public function testStartRoundDoesNotRepeatWordAcrossReset(): void
+    {
+        $room = new Room('ABC123');
+        $room->addPlayer(new Player('1', 'Alice', $room->id));
+        $room->addPlayer(new Player('2', 'Bob', $room->id));
+
+        $words = new Words(['A', 'B']);
+
+        $room->startRound($words);
+        $first = $room->word;
+        self::assertNotNull($first);
+        self::assertSame($first, $room->lastWord);
+
+        $room->resetRoundState();
+
+        self::assertNull($room->word);
+        self::assertSame($first, $room->lastWord);
+
+        $room->startRound($words);
+        $second = $room->word;
+        self::assertNotNull($second);
+
+        self::assertNotSame($first, $second);
+    }
+
     public function testStartRoundRequiresAtLeastTwoPlayers(): void
     {
         $room = new Room('ABC123');
