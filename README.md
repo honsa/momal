@@ -144,7 +144,10 @@ Optional:
 
 ## Troubleshooting
 
-- Wenn `ws://localhost:8080` nicht geht: Port belegt? Dann `MOMAL_WS_PORT=8090 php server/ws-server.php` und in `public/app.js` den Port anpassen.
+- Wenn `ws://localhost:8080` nicht geht: Port belegt? Dann den Server-Port wechseln: `MOMAL_WS_PORT=8090 php server/ws-server.php`.
+  - Lokal (HTTP) verbindet der Browser direkt auf `ws://localhost:<PORT>`.
+  - Unter HTTPS sollte der WebSocket **ueber den Reverse Proxy** laufen (`wss://<host>/ws`).
+    In dem Fall muss Apache/Nginx `/ws` auf den lokalen WS-Port weiterleiten.
 
 ## Security / Hardening
 
