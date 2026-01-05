@@ -46,6 +46,110 @@
   let state = 'lobby';
   let lastSnapshot = null;
 
+  const wsClient = Momal.createWsClient({
+    onOpen: () => {
+      ui.setStatus('online');
+      ui.showToast('WS verbunden', 2500, 'success');
+    },
+    onClose: (e) => {
+      ui.setStatus('offline');
+      ui.showToast(`WS getrennt (${(e && e.code) || 0})`);
+      joined = false;
+      isHost = false;
+      drawerConnectionId = null;
+      state = 'lobby';
+      els.btnStart.disabled = true;
+      els.btnClear.disabled = true;
+      els.secretWordEl.textContent = '—';
+      ui.setHint('Verbindung getrennt. Seite neu laden.');
+    },
+    onError: () => {
+      ui.showToast('WS Fehler (siehe console)');
+    },
+    onBinary: (decoded) => {
+      if (Number.isFinite(decoded.tsMs)) draw.updateTimeOffset(Number(decoded.tsMs));
+      const stitched = draw.stitchIncomingStroke(decoded.payload);
+      draw.enqueueRender(stitched, { tsMs: decoded.tsMs });
+      draw.drawEvent(stitched);
+    },
+    onJsonMessage: (msg) => {
+      if (!msg || !msg.type) return;
+
+      switch (msg.type) {
+        case 'hello':
+          myConnectionId = msg.connectionId;
+          break;
+        case 'error':
+          ui.showToast(msg.message || 'Fehler');
+          ui.addChatLine('System', msg.message || 'Fehler', Math.floor(Date.now() / 1000));
+          if ((msg.message || '').toLowerCase().includes('name')) {
+            try { els.nameEl.focus(); } catch (_) { /* ignore */ }
+          }
+          break;
+        case 'joined':
+          joined = true;
+          isHost = !!msg.isHost;
+          els.btnStart.disabled = !isHost;
+          break;
+        case 'chat:new':
+          ui.addChatLine(msg.name, msg.text, msg.ts);
+          break;
+        case 'room:snapshot':
+          renderSnapshot(msg);
+          break;
+        case 'round:started':
+          drawerConnectionId = msg.drawerConnectionId;
+          els.secretWordEl.textContent = '—';
+          draw.clearCanvasLocal();
+          if (msg.accentColor) setAccentColor(msg.accentColor);
+          window.requestAnimationFrame(() => draw.setupCanvasResolution());
+          ui.setHint((drawerConnectionId === myConnectionId)
+            ? 'Du bist Zeichner. Zeichne das Wort (oben erscheint es gleich).'
+            : 'Rate im Chat!');
+          if (drawerConnectionId === myConnectionId) maybeSetDrawerDefaultColor();
+          break;
+        case 'round:word':
+          els.secretWordEl.textContent = msg.word;
+          break;
+        case 'draw:batch': {
+          const seq = Number(msg.seq);
+          const events = Array.isArray(msg.events) ? msg.events : [];
+          if (!Number.isFinite(seq) || events.length === 0) break;
+          if (Number.isFinite(msg.tsMs)) draw.updateTimeOffset(Number(msg.tsMs));
+          if (expectedDrawSeq === null) expectedDrawSeq = seq;
+          pendingBatches.set(seq, { events, tsMs: Number.isFinite(msg.tsMs) ? Number(msg.tsMs) : null });
+          if (seq !== expectedDrawSeq) {
+            scheduleGapCheck();
+            drainPendingBatchesWithinWindow();
+          }
+          drainPendingBatches(false);
+          break;
+        }
+        case 'draw:event':
+        case 'draw:stroke':
+          if (msg.payload) draw.enqueueRender(draw.stitchIncomingStroke(msg.payload));
+          break;
+        case 'round:clear':
+          draw.clearCanvasLocal();
+          expectedDrawSeq = null;
+          pendingBatches.clear();
+          draw.resetIncomingStrokeAnchors();
+          break;
+        case 'round:ended':
+          ui.addChatLine('System', `${msg.reason} Wort war: ${msg.word}`, Math.floor(Date.now() / 1000));
+          drawerConnectionId = null;
+          els.secretWordEl.textContent = '—';
+          els.btnClear.disabled = true;
+          expectedDrawSeq = null;
+          pendingBatches.clear();
+          draw.resetIncomingStrokeAnchors();
+          break;
+        default:
+          break;
+      }
+    }
+  });
+
   // Per-round UI accent color (server decides)
   let lastRoundAccent = null;
   function setAccentColor(color) {
