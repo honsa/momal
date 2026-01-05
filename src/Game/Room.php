@@ -98,7 +98,7 @@ final class Room
         $this->drawerConnectionId = $this->pickNextDrawer();
         $this->lastDrawerConnectionId = $this->drawerConnectionId;
 
-        $this->word = $words->randomWord();
+        $this->word = $words->randomWord($this->word);
         $this->roundStartedAt = \time();
 
         // everybody is allowed to guess except drawer

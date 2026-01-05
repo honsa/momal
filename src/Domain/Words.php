@@ -9,6 +9,8 @@ final class Words
     /** @var string[] */
     private array $words;
 
+    private ?string $lastWord = null;
+
     /**
      * @param string[] $words
      */
@@ -135,7 +137,7 @@ final class Words
         ];
     }
 
-    public function randomWord(): string
+    public function randomWord(?string $exclude = null): string
     {
         $count = \count($this->words);
         if ($count === 0) {
@@ -143,6 +145,48 @@ final class Words
             return 'Katze';
         }
 
-        return $this->words[\random_int(0, $count - 1)];
+        // If we only have one word, we can't avoid repeats.
+        if ($count === 1) {
+            $this->lastWord = $this->words[0];
+
+            return $this->words[0];
+        }
+
+        $excludeWord = $exclude ?? $this->lastWord;
+
+        if ($excludeWord === null) {
+            $w = $this->words[\random_int(0, $count - 1)];
+            $this->lastWord = $w;
+
+            return $w;
+        }
+
+        // Try a few times to avoid exclude word.
+        for ($i = 0; $i < 10; $i++) {
+            $w = $this->words[\random_int(0, $count - 1)];
+            if ($w !== $excludeWord) {
+                $this->lastWord = $w;
+
+                return $w;
+            }
+        }
+
+        $filtered = \array_values(\array_filter(
+            $this->words,
+            static fn (string $w): bool => $w !== $excludeWord
+        ));
+
+        // With $count > 1 and excludeWord taken from our list, $filtered must be non-empty.
+        if ($filtered === []) {
+            // If the list contains only duplicates of the excluded word, we can't avoid repeats.
+            $this->lastWord = $excludeWord;
+
+            return $excludeWord;
+        }
+
+        $w = $filtered[\random_int(0, \count($filtered) - 1)];
+        $this->lastWord = $w;
+
+        return $w;
     }
 }
