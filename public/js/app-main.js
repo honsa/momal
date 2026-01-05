@@ -460,6 +460,18 @@
     }
   }, 10000);
 
+  // Debug hook: show draw-sync health without affecting gameplay.
+  if (typeof Momal.isDebugEnabled === 'function' && Momal.isDebugEnabled()) {
+    setInterval(() => {
+      try {
+        // eslint-disable-next-line no-console
+        console.log('[momal] drawSync', drawSync.getDebugInfo());
+      } catch (_) {
+        // ignore
+      }
+    }, 5000);
+  }
+
   // initial setup
   draw.setupCanvasResolution();
   connect();
