@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Momal – WS Smoke (Modules)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    input, button { font-size: 14px; padding: 6px 8px; }
+    #log { margin-top: 12px; padding: 10px; background: #111; color: #eee; height: 260px; overflow: auto; white-space: pre-wrap; border-radius: 6px; }
+    canvas { border: 1px solid #ccc; border-radius: 8px; margin-top: 12px; touch-action: none; }
+  </style>
+</head>
+<body>
+  <h1>WS Smoke Test (Modules)</h1>
+  <p>Testet: <code>ws-client</code>, <code>draw-sync</code>, <code>stroke-sender</code> (ohne Game-UI).</p>
+
+  <div class="row">
+    <label>WS URL <input id="wsUrl" size="36" placeholder="ws://127.0.0.1:8080" /></label>
+    <button id="btnConnect">Connect</button>
+    <button id="btnJoin">Join (room=SMOKE)</button>
+    <button id="btnStart">Start round</button>
+    <button id="btnClear">Clear</button>
+  </div>
+
+  <canvas id="canvas" width="900" height="520"></canvas>
+
+  <div id="log" aria-live="polite"></div>
+
+  <script src="/js/core.js?v=1"></script>
+  <script src="/js/binary-protocol.js?v=1"></script>
+  <script src="/js/draw.js?v=1"></script>
+  <script src="/js/ws-client.js?v=1"></script>
+  <script src="/js/draw-sync.js?v=1"></script>
+  <script src="/js/stroke-sender.js?v=1"></script>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const logEl = $('log');
+      const canvas = $('canvas');
+      const ctx = canvas.getContext('2d');
+
+      const draw = window.Momal.createDraw(canvas, ctx);
+      const drawSync = window.Momal.createDrawSync({ draw });
+
+      let allowDraw = true;
+      let wsClient = null;
+      let strokeSender = null;
+      let isDrawing = false;
+      let last = null;
+
+      function log(...args) {
+        const s = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+        logEl.textContent += s + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function guessDefaultUrl() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = location.hostname || '127.0.0.1';
+        return `${proto}//${host}:8080`;
+      }
+
+      $('wsUrl').value = guessDefaultUrl();
+
+      function bindPointer() {
+        canvas.addEventListener('pointerdown', (e) => {
+          if (!strokeSender || !allowDraw) return;
+          isDrawing = true;
+          last = draw.normalizeCanvasPoint(e);
+          strokeSender.beginStroke(last, { color: '#000000', width: 4 });
+          e.preventDefault();
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+          if (!isDrawing || !last || !strokeSender || !allowDraw) return;
+          const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : null;
+          const list = Array.isArray(events) && events.length ? events : [e];
+          for (const ev of list) {
+            const cur = draw.normalizeCanvasPoint(ev);
+            draw.drawEvent({ t: 'line', x0: last.x, y0: last.y, x1: cur.x, y1: cur.y, c: '#000', w: 4 });
+            strokeSender.pushPoint(last, cur);
+            last = cur;
+          }
+          e.preventDefault();
+        });
+
+        window.addEventListener('pointerup', () => {
+          if (!strokeSender) return;
+          isDrawing = false;
+          last = null;
+          strokeSender.endStroke();
+        });
+      }
+
+      bindPointer();
+
+      $('btnConnect').onclick = () => {
+        const baseUrl = $('wsUrl').value.trim();
+        wsClient = window.Momal.createWsClient({
+          urlOverride: baseUrl,
+          onOpen: () => log('open', baseUrl),
+          onClose: (e) => log('close', (e && e.code) || 0),
+          onError: () => log('error'),
+          onBinary: (decoded) => {
+            const stitched = draw.stitchIncomingStroke(decoded.payload);
+            draw.enqueueRender(stitched, { tsMs: decoded.tsMs });
+            draw.drawEvent(stitched);
+          },
+          onJsonMessage: (msg) => {
+            if (!msg || !msg.type) return;
+            log('json', msg.type);
+            if (msg.type === 'draw:batch') {
+              drawSync.onBatch({ seq: msg.seq, events: msg.events, tsMs: msg.tsMs });
+            }
+            if (msg.type === 'round:clear' || msg.type === 'round:ended') {
+              drawSync.reset();
+              draw.resetIncomingStrokeAnchors();
+            }
+          }
+        });
+
+        wsClient.connect();
+
+        strokeSender = window.Momal.createStrokeSender({
+          wsClient,
+          canDraw: () => allowDraw,
+          nowMs: () => performance.now(),
+        });
+      };
+
+      $('btnJoin').onclick = () => {
+        if (!wsClient) return;
+        wsClient.sendJson({ type: 'join', name: 'smoke', roomId: 'SMOKE' });
+      };
+
+      $('btnStart').onclick = () => {
+        if (!wsClient) return;
+        wsClient.sendJson({ type: 'round:start' });
+      };
+
+      $('btnClear').onclick = () => {
+        if (!wsClient) return;
+        wsClient.sendJson({ type: 'round:clear' });
+        draw.clearCanvasLocal();
+      };
+    })();
+  </script>
+</body>
+</html>
+

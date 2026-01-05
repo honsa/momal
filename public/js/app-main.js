@@ -9,6 +9,7 @@
   if (!Momal.createGameState) throw new Error('Momal game state missing');
   if (!Momal.createDrawSync) throw new Error('Momal draw sync missing');
   if (!Momal.createStrokeSender) throw new Error('Momal stroke sender missing');
+  if (!Momal.createBrushCursor) throw new Error('Momal brush cursor missing');
 
   const $ = Momal.$;
 
@@ -91,6 +92,12 @@
     maxPointsPerChunk: 160,
   });
 
+  const brushCursor = Momal.createBrushCursor({
+    canvas: els.canvas,
+    widthEl: els.widthEl,
+    colorEl: els.colorEl,
+  });
+
   function canDraw() {
     return game.canDraw();
   }
@@ -128,7 +135,7 @@
   // renderSnapshot handled by game-state module
 
   function connect() {
-    ws = wsClient.connect();
+    wsClient.connect();
   }
 
   function renderHighscoreFromApi(roomId) {
@@ -172,12 +179,7 @@
   }
 
   function setDrawingCursor(active) {
-    if (active) {
-      document.body.classList.add('is-drawing');
-    } else {
-      document.body.classList.remove('is-drawing');
-      els.canvas.style.cursor = '';
-    }
+    brushCursor.setActive(!!active);
   }
 
   function onPointerDown(e) {
