@@ -5,6 +5,13 @@
   const Momal = window.Momal;
   if (!Momal) throw new Error('Momal core missing');
 
+  /**
+   * @param {{
+   *   els: any,
+   *   ui: any,
+   *   draw: any,
+   * }} deps
+   */
   function createGameState({ els, ui, draw } = {}) {
     if (!els || !ui || !draw) throw new Error('createGameState: missing deps');
 
@@ -19,12 +26,15 @@
       lastRoundAccent: null,
     };
 
+    // --- helpers ---
+
     function setAccentColor(color) {
       if (!color || typeof color !== 'string') return;
       document.body.style.setProperty('--accent', color);
       state.lastRoundAccent = color;
     }
 
+    /** Whether the local player is allowed to draw right now. */
     function canDraw() {
       return state.joined && state.phase === 'in_round' && state.drawerConnectionId === state.myConnectionId;
     }
@@ -69,6 +79,18 @@
       ui.renderScoreboard(snap.players || [], state.myConnectionId);
     }
 
+    /**
+     * Applies one incoming WS JSON message to state + UI.
+     *
+     * @param {{type:string, [key:string]:any}} msg
+     * @param {{
+     *   expectedDrawSeqRef?: { value: number|null },
+     *   pendingBatches?: Map<number, any>,
+     *   scheduleGapCheck?: Function,
+     *   drainPendingBatchesWithinWindow?: Function,
+     *   drainPendingBatches?: Function,
+     * }} helpers
+     */
     function applyWsMessage(msg, helpers) {
       const {
         expectedDrawSeqRef,
@@ -130,7 +152,7 @@
           break;
 
         case 'draw:batch': {
-          if (!expectedDrawSeqRef || !pendingBatches || !drainPendingBatches) return;
+          if (!expectedDrawSeqRef || !pendingBatches || typeof drainPendingBatches !== 'function') return;
 
           const seq = Number(msg.seq);
           const events = Array.isArray(msg.events) ? msg.events : [];
