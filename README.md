@@ -198,6 +198,28 @@ Die Seite loggt:
 
 Das ist hilfreich bei „Canvas bleibt weiss“ oder „nichts kommt beim Spieler an“.
 
+### WebSocket Smoke Test (Module-Stack)
+
+Wenn du gezielt unsere Vanilla-JS Module testen willst (ohne die komplette Game-UI), gibt es eine zweite Smoke-Seite:
+
+- Oeffne: `http://localhost:8000/ws-smoke-modules.html`
+
+Sie nutzt:
+
+- `public/js/ws-client.js`
+- `public/js/draw-sync.js`
+- `public/js/stroke-sender.js`
+
+**WS Ziel konfigurieren:**
+
+Die Seite setzt die gleichen Overrides wie `ws-client.js` (via LocalStorage):
+
+- `momal_wsHost`
+- `momal_wsPort`
+- `momal_wsPath`
+
+Damit kannst du schnell zwischen lokal (`ws://127.0.0.1:8080`) und Reverse-Proxy (`wss://<domain>/ws`) wechseln.
+
 ### Server Debug Logging
 
 Der WebSocket-Server hat optionales Debug-Logging (fuer Connect/Join/Draw/Broadcast). Aktivieren:
