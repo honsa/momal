@@ -17,7 +17,9 @@
   <p>Testet: <code>ws-client</code>, <code>draw-sync</code>, <code>stroke-sender</code> (ohne Game-UI).</p>
 
   <div class="row">
-    <label>WS URL <input id="wsUrl" size="36" placeholder="ws://127.0.0.1:8080" /></label>
+    <label>WS Host <input id="wsHost" size="18" placeholder="127.0.0.1" /></label>
+    <label>Port <input id="wsPort" size="6" placeholder="8080" /></label>
+    <label>Path <input id="wsPath" size="8" placeholder="/ws" /></label>
     <button id="btnConnect">Connect</button>
     <button id="btnJoin">Join (room=SMOKE)</button>
     <button id="btnStart">Start round</button>
@@ -57,13 +59,15 @@
         logEl.scrollTop = logEl.scrollHeight;
       }
 
-      function guessDefaultUrl() {
-        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      function guessDefaults() {
         const host = location.hostname || '127.0.0.1';
-        return `${proto}//${host}:8080`;
+        return { host, port: '8080', path: '/ws' };
       }
 
-      $('wsUrl').value = guessDefaultUrl();
+      const defs = guessDefaults();
+      $('wsHost').value = defs.host;
+      $('wsPort').value = defs.port;
+      $('wsPath').value = defs.path;
 
       function bindPointer() {
         canvas.addEventListener('pointerdown', (e) => {
@@ -98,29 +102,39 @@
       bindPointer();
 
       $('btnConnect').onclick = () => {
-        const baseUrl = $('wsUrl').value.trim();
+        const host = $('wsHost').value.trim();
+        const port = $('wsPort').value.trim();
+        const path = $('wsPath').value.trim();
+
+        try {
+          if (host) localStorage.setItem('momal_wsHost', host);
+          if (port) localStorage.setItem('momal_wsPort', port);
+          if (path) localStorage.setItem('momal_wsPath', path);
+        } catch (_) {
+          // ignore
+        }
+
         wsClient = window.Momal.createWsClient({
-          urlOverride: baseUrl,
-          onOpen: () => log('open', baseUrl),
-          onClose: (e) => log('close', (e && e.code) || 0),
-          onError: () => log('error'),
-          onBinary: (decoded) => {
-            const stitched = draw.stitchIncomingStroke(decoded.payload);
-            draw.enqueueRender(stitched, { tsMs: decoded.tsMs });
-            draw.drawEvent(stitched);
-          },
-          onJsonMessage: (msg) => {
-            if (!msg || !msg.type) return;
-            log('json', msg.type);
-            if (msg.type === 'draw:batch') {
-              drawSync.onBatch({ seq: msg.seq, events: msg.events, tsMs: msg.tsMs });
-            }
-            if (msg.type === 'round:clear' || msg.type === 'round:ended') {
-              drawSync.reset();
-              draw.resetIncomingStrokeAnchors();
-            }
-          }
-        });
+           onOpen: () => log('open'),
+           onClose: (e) => log('close', (e && e.code) || 0),
+           onError: () => log('error'),
+           onBinary: (decoded) => {
+             const stitched = draw.stitchIncomingStroke(decoded.payload);
+             draw.enqueueRender(stitched, { tsMs: decoded.tsMs });
+             draw.drawEvent(stitched);
+           },
+           onJsonMessage: (msg) => {
+             if (!msg || !msg.type) return;
+             log('json', msg.type);
+             if (msg.type === 'draw:batch') {
+               drawSync.onBatch({ seq: msg.seq, events: msg.events, tsMs: msg.tsMs });
+             }
+             if (msg.type === 'round:clear' || msg.type === 'round:ended') {
+               drawSync.reset();
+               draw.resetIncomingStrokeAnchors();
+             }
+           }
+         });
 
         wsClient.connect();
 
